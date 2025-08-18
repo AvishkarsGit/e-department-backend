@@ -18,7 +18,7 @@ export class Server {
   setConfigs() {
     //this.dotenvConfig();
     this.connectMongoDB();
-    this.allowCors();
+    // this.allowCors();
     this.configureBodyParser();
   }
 
