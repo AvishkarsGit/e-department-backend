@@ -3,6 +3,8 @@ import User from "../model/User";
 import { JWT } from "../utils/JWT";
 import { NodeMailer } from "../utils/NodeMailer";
 import { Utils } from "../utils/Utils";
+import Faculty from "../model/Faculty";
+import Department from "../model/Department";
 
 export class UserController {
   static async signup(req, res, next) {
@@ -318,6 +320,16 @@ export class UserController {
         reset_password_verification_token_time: Date.now(),
       }).save();
 
+      //get department
+      const department = await Department.findOne({ name: "Computer" });
+
+      //save into faculty collection
+      await new Faculty({
+        user_id: user._id,
+        department: department._id,
+        faculty_role: "faculty",
+      }).save();
+
       // send email on faculties email
 
       await NodeMailer.sendEmail({
@@ -331,6 +343,23 @@ export class UserController {
         username,
         password,
         data: user,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  static async addDepartment(req, res, next) {
+    try {
+      const { name } = req.body;
+      const department = await new Department({ name }).save();
+      if (!department) {
+        throw new Error("failed to create department");
+      }
+
+      return res.json({
+        success: true,
+        data: department,
       });
     } catch (error) {
       next(error);

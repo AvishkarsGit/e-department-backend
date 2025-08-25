@@ -61,6 +61,14 @@ class UserRouter {
       GlobalMiddleware.checkError,
       UserController.createFaculty
     );
+
+    //department
+    this.router.post(
+      "/add-department",
+      UserValidator.addDepartment(),
+      GlobalMiddleware.checkError,
+      UserController.addDepartment
+    );
   }
 
   putRoutes() {}

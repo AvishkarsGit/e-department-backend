@@ -1,5 +1,6 @@
 import { body, query } from "express-validator";
 import User from "../model/User";
+import Department from "../model/Department";
 
 export class UserValidator {
   static signup() {
@@ -122,6 +123,22 @@ export class UserValidator {
           return User.findOne({ email }).then((user) => {
             if (user) {
               throw new Error("User is already exists with this email");
+            } else {
+              return true;
+            }
+          });
+        }),
+    ];
+  }
+
+  static addDepartment() {
+    return [
+      body("name", "department name is required")
+        .isString()
+        .custom((name, { req }) => {
+          return Department.findOne({ name }).then((department) => {
+            if (department) {
+              throw new Error(`${name} department is already exist`);
             } else {
               return true;
             }
