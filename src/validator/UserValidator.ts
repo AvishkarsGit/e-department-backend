@@ -58,10 +58,10 @@ export class UserValidator {
 
   static login() {
     return [
-      body("username", "Username is required")
+      body("email", "Email is required")
         .isString()
-        .custom((username, { req }) => {
-          return User.findOne({ username: username }).then((user) => {
+        .custom((email, { req }) => {
+          return User.findOne({ email: email }).then((user) => {
             if (user) {
               req.user = user;
               return true;
