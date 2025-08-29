@@ -26,6 +26,8 @@ class FacultyRouter {
   }
 
   postRoutes() {
+
+
     //login
     this.router.post(
       "/login",

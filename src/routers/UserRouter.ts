@@ -33,6 +33,9 @@ class UserRouter {
       GlobalMiddleware.auth,
       UserController.getAllUsers
     );
+
+    //check if admin is exists or not
+    this.router.get("/checkAdminExists", UserController.checkAdminExists);
   }
 
   postRoutes() {
@@ -60,29 +63,13 @@ class UserRouter {
       UserController.refreshToken
     );
 
-    //create faculty
+    //add user
     this.router.post(
-      "/create-faculty",
+      "/add",
       GlobalMiddleware.auth,
-      UserValidator.createFaculty(),
-      GlobalMiddleware.checkError,
-      UserController.createFaculty
-    );
-
-    //update faculty data
-    this.router.post(
-      "/update-faculty/:id",
-      UserValidator.updateFaculty(),
-      GlobalMiddleware.checkError,
-      UserController.updateFaculty
-    );
-
-    //department
-    this.router.post(
-      "/add-department",
-      UserValidator.addDepartment(),
-      GlobalMiddleware.checkError,
-      UserController.addDepartment
+      UserValidator.addUser(),
+      GlobalMiddleware.checkError.apply,
+      UserController.addUser
     );
   }
 

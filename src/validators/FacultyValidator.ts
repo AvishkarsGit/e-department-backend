@@ -2,6 +2,8 @@ import { body } from "express-validator";
 import User from "../models/User";
 
 export class FacultyValidator {
+ 
+
   static login() {
     return [
       body("username", "Username is required")

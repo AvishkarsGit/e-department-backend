@@ -7,6 +7,7 @@ import mongoose from "mongoose";
 import * as cors from "cors";
 import { getEnvironmentVariables } from "./environments/environment";
 import FacultyRouter from "./routers/FacultyRouter";
+import AdminRouter from "./routers/AdminRouter";
 
 export class Server {
   public app = express();
@@ -16,6 +17,7 @@ export class Server {
     this.setRoutes();
   }
 
+
   setConfigs() {
     this.connectMongoDB();
     this.allowCors();
@@ -24,6 +26,7 @@ export class Server {
 
   setRoutes() {
     this.app.use("/api/user", UserRouter);
+    this.app.use("/api/admin", AdminRouter);
     this.app.use("/api/faculty", FacultyRouter);
   }
 
