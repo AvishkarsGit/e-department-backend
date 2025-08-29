@@ -1,11 +1,12 @@
 import * as express from "express";
 import * as dotenv from "dotenv";
 dotenv.config(); //config dotenv
-import UserRouter from "./router/UserRouter";
+import UserRouter from "./routers/UserRouter";
 import * as bodyParser from "body-parser";
 import mongoose from "mongoose";
-import { getEnvironmentVariables } from "./environment/environment";
-import FacultyRouter from "./router/FacultyRouter";
+import * as cors from "cors";
+import { getEnvironmentVariables } from "./environments/environment";
+import FacultyRouter from "./routers/FacultyRouter";
 
 export class Server {
   public app = express();
@@ -17,12 +18,13 @@ export class Server {
 
   setConfigs() {
     this.connectMongoDB();
+    this.allowCors();
     this.configBodyParser();
   }
 
   setRoutes() {
     this.app.use("/api/user", UserRouter);
-    this.app.use('/api/faculty',FacultyRouter);
+    this.app.use("/api/faculty", FacultyRouter);
   }
 
   connectMongoDB() {
@@ -44,5 +46,9 @@ export class Server {
     );
 
     this.app.use(bodyParser.json());
+  }
+
+  allowCors() {
+    this.app.use(cors());
   }
 }

@@ -1,17 +1,16 @@
 import { EmitFlags } from "typescript";
-import User from "../model/User";
+import User from "../models/User";
 import { JWT } from "../utils/JWT";
 import { NodeMailer } from "../utils/NodeMailer";
 import { Utils } from "../utils/Utils";
-import Faculty from "../model/Faculty";
-import Department from "../model/Department";
+import Faculty from "../models/Faculty";
+import Department from "../models/Department";
 
 export class UserController {
   static async signup(req, res, next) {
     try {
       //get data from the body
-      const { name, email, username, password, phone, profile, role } =
-        req.body;
+      const { name, email, username, password, phone, photo, role } = req.body;
 
       //generate verification token
       const verification_token = Utils.generateVerificationToken();
@@ -26,7 +25,7 @@ export class UserController {
         username,
         password: hashPass,
         phone,
-        profile,
+        photo,
         role,
         verification_token,
         verification_token_time: Date.now() + Utils.MAX_TOKEN_TIME,
@@ -52,9 +51,11 @@ export class UserController {
 
       return res.json({
         success: true,
-        token: accessToken,
-        refreshToken,
-        data: user,
+
+        data: {
+          accessToken,
+          refreshToken,
+        },
       });
     } catch (error) {
       next(error);
@@ -168,9 +169,11 @@ export class UserController {
       const refreshToken = JWT.generateRefreshToken({ id: user._id });
 
       return res.json({
-        token: accessToken,
-        refreshToken,
-        user: req.user,
+        success: true,
+        data: {
+          accessToken,
+          refreshToken,
+        },
       });
     } catch (error) {
       next(error);
@@ -294,11 +297,11 @@ export class UserController {
 
   static async createFaculty(req, res, next) {
     try {
-      const { name, email } = req.body;
+      const { name, email, phone, password } = req.body;
 
       //generate username and password for the faculty;
       const username = Utils.generateUsername(name);
-      const password = Utils.generatePassword(name);
+      // const password = Utils.generatePassword(name);
 
       // encrypt password
       const hashedPass = await JWT.encryptPassword(password);
@@ -311,8 +314,8 @@ export class UserController {
         email,
         username,
         password: hashedPass,
-        phone: " ",
-        profile: " ",
+        phone,
+        photo: " ",
         role: "Faculty",
         verification_token: " ",
         verification_token_time: Date.now(),
@@ -340,9 +343,61 @@ export class UserController {
 
       return res.json({
         success: true,
-        username,
-        password,
         data: user,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  static async updateFaculty(req, res, next) {
+    const { name, email, phone } = req.body;
+    const id = req.query.id;
+    try {
+      if (!id) {
+        throw new Error("id is not available");
+      }
+      const updated = await User.findOneAndUpdate(
+        { _id: id },
+        {
+          $set: {
+            updated_at: Date.now(),
+            name,
+            email,
+            phone,
+          },
+        },
+        {
+          new: true,
+        }
+      );
+
+      if (!updated) {
+        throw new Error("failed to update");
+      }
+
+      return res.json({
+        success: true,
+        data: updated,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  static async deleteFaculty(req, res, next) {
+    try {
+      const id = req.query._id;
+      if (!id) {
+        throw new Error("Id is not available");
+      }
+      const deletedUser = await User.findOneAndDelete({ _id: id });
+      if (!deletedUser) {
+        throw new Error("failed to delete user");
+      }
+
+      return res.json({
+        success: true,
       });
     } catch (error) {
       next(error);
@@ -360,6 +415,38 @@ export class UserController {
       return res.json({
         success: true,
         data: department,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  static async getAllUsers(req, res, next) {
+    const perPage = 5;
+    const currentPage = parseInt(req.query.page) || 1;
+    const prevPage = currentPage == 1 ? null : currentPage - 1;
+    let nextPage = currentPage + 1;
+    try {
+      const users_doc_count = await User.countDocuments();
+      const totalPages = Math.ceil(users_doc_count / perPage);
+      if (totalPages == 0 || totalPages == currentPage) {
+        nextPage = null;
+      }
+
+      if (totalPages < currentPage) {
+        throw "no more user available";
+      }
+      const users = await User.find({})
+        .skip(currentPage * perPage - perPage)
+        .limit(perPage);
+
+      return res.json({
+        data: users,
+        perPage,
+        currentPage,
+        prevPage,
+        nextPage,
+        totalPages,
       });
     } catch (error) {
       next(error);

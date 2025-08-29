@@ -1,7 +1,7 @@
 import { Router } from "express";
-import { GlobalMiddleware } from "../middleware/GlobalMiddleware";
-import { UserValidator } from "../validator/UserValidator";
-import { UserController } from "../controller/UserController";
+import { GlobalMiddleware } from "../middlewares/GlobalMiddleware";
+import { UserValidator } from "../validators/UserValidator";
+import { UserController } from "../controllers/UserController";
 
 class UserRouter {
   public router: Router;
@@ -25,6 +25,13 @@ class UserRouter {
       UserValidator.sendResetPasswordToken(),
       GlobalMiddleware.checkError,
       UserController.sendResendPasswordToken
+    );
+
+    //get all users with pagination
+    this.router.get(
+      "/users",
+      GlobalMiddleware.auth,
+      UserController.getAllUsers
     );
   }
 
@@ -60,6 +67,14 @@ class UserRouter {
       UserValidator.createFaculty(),
       GlobalMiddleware.checkError,
       UserController.createFaculty
+    );
+
+    //update faculty data
+    this.router.post(
+      "/update-faculty/:id",
+      UserValidator.updateFaculty(),
+      GlobalMiddleware.checkError,
+      UserController.updateFaculty
     );
 
     //department
@@ -100,7 +115,9 @@ class UserRouter {
     );
   }
 
-  deleteRoutes() {}
+  deleteRoutes() {
+    this.router.delete("/delete-faculty/:id", UserController.deleteFaculty);
+  }
 }
 
 export default new UserRouter().router;

@@ -1,6 +1,6 @@
 import * as Bcrypt from "bcrypt";
 import * as jwt from "jsonwebtoken";
-import { getEnvironmentVariables } from "../environment/environment";
+import { getEnvironmentVariables } from "../environments/environment";
 export class JWT {
   static encryptPassword(password: string) {
     return new Promise((resolve, reject) => {
@@ -16,7 +16,7 @@ export class JWT {
 
   static generateAccessToken(payload) {
     const token = jwt.sign(payload, getEnvironmentVariables().jwt_secret_key, {
-      expiresIn: "1h",
+      expiresIn: "1y",
     });
     return token;
   }

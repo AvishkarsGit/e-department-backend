@@ -1,5 +1,5 @@
-import Faculty from "../model/Faculty";
-import User from "../model/User";
+import Faculty from "../models/Faculty";
+import User from "../models/User";
 import { JWT } from "../utils/JWT";
 import { NodeMailer } from "../utils/NodeMailer";
 import { Utils } from "../utils/Utils";

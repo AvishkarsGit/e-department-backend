@@ -1,7 +1,7 @@
 import { Router } from "express";
-import { FacultyValidator } from "../validator/FacultyValidator";
-import { GlobalMiddleware } from "../middleware/GlobalMiddleware";
-import { FacultyController } from "../controller/FacultyController";
+import { FacultyValidator } from "../validators/FacultyValidator";
+import { GlobalMiddleware } from "../middlewares/GlobalMiddleware";
+import { FacultyController } from "../controllers/FacultyController";
 
 class FacultyRouter {
   public router: Router;

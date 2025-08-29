@@ -1,5 +1,5 @@
 import { body } from "express-validator";
-import User from "../model/User";
+import User from "../models/User";
 
 export class FacultyValidator {
   static login() {
