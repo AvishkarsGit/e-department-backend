@@ -7,19 +7,19 @@ const userSchema = new mongoose.Schema({
   username: { type: String, required: true, unique: true },
   password: { type: String, required: true },
   phone: { type: String, required: true },
-  photo: { type: String, required: true },
+  photo: { type: String, required: true, default: null },
   role: {
     type: String,
     enum: ["admin", "hod", "faculty", "student"],
     required: true,
   },
   email_verified: { type: String, required: true, default: false },
-  verification_token: { type: String, required: true },
+  verification_token: { type: String, required: true, default: null },
   verification_token_time: { type: Date, required: true, default: Date.now() },
   reset_password_verification_token: {
     type: String,
     required: true,
-    default: " ",
+    default: null,
   },
   reset_password_verification_token_time: {
     type: Date,

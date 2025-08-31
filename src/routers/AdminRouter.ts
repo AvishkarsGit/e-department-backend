@@ -27,14 +27,7 @@ class AdminRouter {
       AdminController.createFaculty
     );
 
-    //update faculty data
-    this.router.post(
-      "/update-faculty/:id",
-      AdminValidator.updateFaculty(),
-      GlobalMiddleware.checkError,
-      AdminController.updateFaculty
-    );
-
+   
     //department
     this.router.post(
       "/add-department",

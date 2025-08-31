@@ -182,7 +182,9 @@ export class UserController {
 
   static async profile(req, res, next) {
     try {
-      const user = await User.findOne({ _id: req.user.id });
+      const user = await User.findOne({ _id: req.user.id }).select(
+        "-password -verification_token -verification_token_time -reset_password_verification_token -reset_password_verification_token_time -created_at -updated_at -__v"
+      );
       if (!user) {
         throw new Error("user not found");
       }
@@ -311,52 +313,103 @@ export class UserController {
     }
   }
 
-  static async deleteFaculty(req, res, next) {
-    try {
-      const id = req.params.id;
-      if (!id) {
-        throw new Error("Id is not available");
-      }
-      const deletedUser = await User.findOneAndDelete({ _id: id });
-      if (!deletedUser) {
-        throw new Error("failed to delete user");
-      }
-
-      return res.json({
-        success: true,
-      });
-    } catch (error) {
-      next(error);
-    }
-  }
-
   static async getAllUsers(req, res, next) {
-    const perPage = 5;
-    const currentPage = parseInt(req.query.page) || 1;
-    const prevPage = currentPage == 1 ? null : currentPage - 1;
-    let nextPage = currentPage + 1;
+    const per_page = parseInt(req.query.size) || 5;
+    const current_page = parseInt(req.query.page) || 1;
+    const prev_page = current_page == 1 ? null : current_page - 1;
+    let next_page = current_page + 1;
     try {
-      const users_doc_count = await User.countDocuments();
-      const totalPages = Math.ceil(users_doc_count / perPage);
-      if (totalPages == 0 || totalPages == currentPage) {
-        nextPage = null;
+      
+      // // filter handling
+      const filter = req.query.filter || "";
+      let query = {};
+      if (filter) {
+        const regex = new RegExp(filter, "i");
+        query = {
+          $or: [
+            { name: regex },
+            { email: regex },
+            { username: regex },
+            { phone: regex },
+            { role: regex },
+          ],
+        };
+      }
+      const users_doc_count = await User.countDocuments(query);
+      const total_pages = Math.ceil(users_doc_count / per_page);
+      if (total_pages == 0 || total_pages == current_page) {
+        next_page = null;
       }
 
-      if (totalPages < currentPage) {
+      if (total_pages < current_page) {
         throw "no more user available";
       }
-      const users = await User.find({})
-        .skip(currentPage * perPage - perPage)
-        .limit(perPage);
+      const users = await User.find(query)
+        .skip(current_page * per_page - per_page)
+        .limit(per_page);
 
       return res.json({
         data: users,
-        perPage,
-        currentPage,
-        prevPage,
-        nextPage,
-        totalPages,
+        pagination: {
+          current_page,
+          prev_page,
+          next_page,
+          total: users_doc_count,
+        },
       });
+
+
+
+      // **** Atlas search ****
+      // let pipeline = [];
+
+      // if (filter) {
+      //   pipeline.push({
+      //     $search: {
+      //       index: "userSearchIndex",
+      //       text: {
+      //         query: filter,
+      //         path: ["name", "email", "username", "phone", "role"],
+      //         fuzzy: { maxEdits: 2, prefixLength: 1 },
+      //       },
+      //     },
+      //   });
+      // }
+
+      // pipeline.push({
+      //   $facet: {
+      //     data: [
+      //       { $skip: (current_page - 1) * per_page },
+      //       { $limit: per_page },
+      //     ],
+      //     totalCount: [{ $count: "count" }],
+      //   },
+      // });
+
+      // const result = await User.aggregate(pipeline);
+
+      // const users = result[0].data;
+      // const users_doc_count =
+      //   result[0].totalCount.length > 0 ? result[0].totalCount[0].count : 0;
+
+      // const total_pages = Math.ceil(users_doc_count / per_page);
+
+      // // ✅ handle next/prev safely
+      // if (current_page >= total_pages) {
+      //   next_page = null;
+      // }
+
+      // return res.json({
+      //   data: users,
+      //   pagination: {
+      //     current_page,
+      //     prev_page,
+      //     next_page,
+      //     total: users_doc_count,
+      //     total_pages,
+      //   },
+      // });
+
     } catch (error) {
       next(error);
     }
@@ -373,24 +426,79 @@ export class UserController {
         name,
         email,
         phone,
+        photo: " ",
         role,
         username,
+        verification_token: " ",
+        reset_password_verification_token: " ",
         password: hashedPass,
-        photo: null,
-        verification_token: null,
-        verification_token_time: Date.now(),
-        reset_password_verification_token: null,
-        reset_password_verification_token_time: Date.now(),
       }).save();
 
       if (!user) {
         throw new Error("failed to add user");
       }
 
+      return res.json({
+        success: true,
+        data: user,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  //update user
+  static async updateUser(req, res, next) {
+    try {
+      const { name, email, phone, role } = req.body;
+
+      const id = req.params.id;
+      if (!id) {
+        throw new Error("id is not available");
+      }
+
+      const updated_user = await User.findOneAndUpdate(
+        {
+          _id: id,
+        },
+        {
+          name,
+          email,
+          phone,
+          role,
+        },
+        {
+          new: true,
+        }
+      );
+
+      if (!updated_user) {
+        throw new Error("Failed to update user");
+      }
 
       return res.json({
         success: true,
-        data:user
+        data: updated_user,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  //delete user
+  static async deleteUser(req, res, next) {
+    try {
+      const id = req.params.id;
+      if (!id) {
+        throw new Error("Id is not available");
+      }
+      const deletedUser = await User.findOneAndDelete({ _id: id });
+      if (!deletedUser) {
+        throw new Error("failed to delete user");
+      }
+
+      return res.json({
+        success: true,
       });
     } catch (error) {
       next(error);

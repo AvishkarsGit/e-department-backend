@@ -68,7 +68,7 @@ class UserRouter {
       "/add",
       GlobalMiddleware.auth,
       UserValidator.addUser(),
-      GlobalMiddleware.checkError.apply,
+      GlobalMiddleware.checkError,
       UserController.addUser
     );
   }
@@ -100,10 +100,19 @@ class UserRouter {
       GlobalMiddleware.checkError,
       UserController.resetPassword
     );
+
+     //update users data
+      this.router.patch(
+        "/update/:id",
+        UserValidator.updateUser(),
+        GlobalMiddleware.checkError,
+        UserController.updateUser
+      );
+  
   }
 
   deleteRoutes() {
-    this.router.delete("/delete-faculty/:id", UserController.deleteFaculty);
+    this.router.delete("/delete/:id", GlobalMiddleware.auth, UserController.deleteUser);
   }
 }
 

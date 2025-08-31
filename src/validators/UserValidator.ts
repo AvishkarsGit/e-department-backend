@@ -133,4 +133,13 @@ export class UserValidator {
       body("password", "Password is required").isString(),
     ];
   }
+
+  static updateUser() {
+    return [
+      body("name", "Name is required").isString(),
+      body("email", "Email is required").isString(),
+      body("phone", "Phone number is required").isString(),
+      body("role", "Role is required").isString(),
+    ];
+  }
 }
