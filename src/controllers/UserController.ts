@@ -314,12 +314,11 @@ export class UserController {
   }
 
   static async getUsers(req, res, next) {
-    const per_page = parseInt(req.query.size) || 5;
-    const current_page = parseInt(req.query.page) || 1;
-    const prev_page = current_page == 1 ? null : current_page - 1;
-    let next_page = current_page + 1;
+    let per_page = parseInt(req.query.size) || 5;
+    let current_page = parseInt(req.query.page) || 1;
+
     try {
-      // // filter handling
+      // Filter handling
       const filter = req.query.filter || "";
       let query = {};
       if (filter) {
@@ -334,78 +333,40 @@ export class UserController {
           ],
         };
       }
+
+      // Total documents after filter
       const users_doc_count = await User.countDocuments(query);
       const total_pages = Math.ceil(users_doc_count / per_page);
-      if (total_pages == 0 || total_pages == current_page) {
-        next_page = null;
+
+      // If requested page > total_pages, just return empty array
+      if (total_pages === 0 || current_page > total_pages) {
+        return res.json({
+          data: [],
+          pagination: {
+            current_page,
+            prev_page: current_page > 1 ? current_page - 1 : null,
+            next_page: null,
+            total: users_doc_count,
+            total_pages,
+          },
+        });
       }
 
-      if (total_pages < current_page) {
-        throw "no more user available";
-      }
+      // Fetch paginated data
       const users = await User.find(query)
-        .skip(current_page * per_page - per_page)
+        .skip((current_page - 1) * per_page)
         .limit(per_page);
 
       return res.json({
         data: users,
         pagination: {
           current_page,
-          prev_page,
-          next_page,
+          prev_page: current_page > 1 ? current_page - 1 : null,
+          next_page: current_page < total_pages ? current_page + 1 : null,
           total: users_doc_count,
+          total_pages,
         },
       });
-
-      // **** Atlas search ****
-      // let pipeline = [];
-
-      // if (filter) {
-      //   pipeline.push({
-      //     $search: {
-      //       index: "userSearchIndex",
-      //       text: {
-      //         query: filter,
-      //         path: ["name", "email", "username", "phone", "role"],
-      //         fuzzy: { maxEdits: 2, prefixLength: 1 },
-      //       },
-      //     },
-      //   });
-      // }
-
-      // pipeline.push({
-      //   $facet: {
-      //     data: [
-      //       { $skip: (current_page - 1) * per_page },
-      //       { $limit: per_page },
-      //     ],
-      //     totalCount: [{ $count: "count" }],
-      //   },
-      // });
-
-      // const result = await User.aggregate(pipeline);
-
-      // const users = result[0].data;
-      // const users_doc_count =
-      //   result[0].totalCount.length > 0 ? result[0].totalCount[0].count : 0;
-
-      // const total_pages = Math.ceil(users_doc_count / per_page);
-
-      // // ✅ handle next/prev safely
-      // if (current_page >= total_pages) {
-      //   next_page = null;
-      // }
-
-      // return res.json({
-      //   data: users,
-      //   pagination: {
-      //     current_page,
-      //     prev_page,
-      //     next_page,
-      //     total: users_doc_count,
-      //     total_pages,
-      //   },
-      // });
     } catch (error) {
       next(error);
     }
