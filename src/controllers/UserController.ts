@@ -338,19 +338,9 @@ export class UserController {
       const users_doc_count = await User.countDocuments(query);
       const total_pages = Math.ceil(users_doc_count / per_page);
 
-      // If requested page > total_pages, just return empty array
-      if (total_pages === 0 || current_page > total_pages) {
-        return res.json({
-          data: [],
-          pagination: {
-            current_page,
-            prev_page: current_page > 1 ? current_page - 1 : null,
-            next_page: null,
-            total: users_doc_count,
-            total_pages,
-          },
-        });
-      }
+      // Adjust current_page if out of range
+      if (total_pages === 0) current_page = 1;
+      else if (current_page > total_pages) current_page = 1;
 
       // Fetch paginated data
       const users = await User.find(query)
