@@ -27,12 +27,11 @@ class UserRouter {
       UserController.sendResendPasswordToken
     );
 
-    //get all users with pagination
-    this.router.get(
-      "/users",
-      GlobalMiddleware.auth,
-      UserController.getAllUsers
-    );
+    //get users with pagination
+    this.router.get("/users", GlobalMiddleware.auth, UserController.getUsers);
+
+    //get all users
+    this.router.get("/allUsers", GlobalMiddleware.auth, UserController.getAllUsers);
 
     //check if admin is exists or not
     this.router.get("/checkAdminExists", UserController.checkAdminExists);

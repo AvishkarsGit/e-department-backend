@@ -313,13 +313,12 @@ export class UserController {
     }
   }
 
-  static async getAllUsers(req, res, next) {
+  static async getUsers(req, res, next) {
     const per_page = parseInt(req.query.size) || 5;
     const current_page = parseInt(req.query.page) || 1;
     const prev_page = current_page == 1 ? null : current_page - 1;
     let next_page = current_page + 1;
     try {
-      
       // // filter handling
       const filter = req.query.filter || "";
       let query = {};
@@ -357,8 +356,6 @@ export class UserController {
           total: users_doc_count,
         },
       });
-
-
 
       // **** Atlas search ****
       // let pipeline = [];
@@ -409,7 +406,19 @@ export class UserController {
       //     total_pages,
       //   },
       // });
+    } catch (error) {
+      next(error);
+    }
+  }
 
+  static async getAllUsers(req, res, next) {
+    try {
+      const users = await User.find({});
+
+      return res.json({
+        success: true,
+        data: users,
+      });
     } catch (error) {
       next(error);
     }
