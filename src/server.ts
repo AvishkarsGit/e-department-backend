@@ -6,6 +6,7 @@ import * as bodyParser from "body-parser";
 import mongoose from "mongoose";
 import * as cors from "cors";
 import { getEnvironmentVariables } from "./environments/environment";
+import ClassRouter from "./routers/ClassRouter";
 
 export class Server {
   public app = express();
@@ -24,6 +25,7 @@ export class Server {
 
   setRoutes() {
     this.app.use("/api/user", UserRouter);
+    this.app.use('/api/class',ClassRouter);
   }
 
   connectMongoDB() {
