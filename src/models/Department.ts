@@ -3,16 +3,12 @@ import mongoose from "mongoose";
 import { model } from "mongoose";
 
 const departmentSchema = new mongoose.Schema({
-    name: {
-      type: String,
-      required: true,
-    },
+  name: {
+    type: String,
+    required: true,
   },
-  {
-    timestamps: {
-      createdAt: "created_at",
-      updatedAt: "updated_at",
-    },
+  created_at: { type: Date, default: Date.now() },
+  updated_at: { type: Date, default: Date.now() },
 });
 
 export default model("Department", departmentSchema);

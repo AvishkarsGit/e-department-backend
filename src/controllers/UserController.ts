@@ -3,8 +3,6 @@ import User from "../models/User";
 import { JWT } from "../utils/JWT";
 import { NodeMailer } from "../utils/NodeMailer";
 import { Utils } from "../utils/Utils";
-import Faculty from "../models/Faculty";
-import Department from "../models/Department";
 
 export class UserController {
   static async signup(req, res, next) {

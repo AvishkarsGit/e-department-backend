@@ -6,9 +6,8 @@ import * as bodyParser from "body-parser";
 import mongoose from "mongoose";
 import * as cors from "cors";
 import { getEnvironmentVariables } from "./environments/environment";
-import FacultyRouter from "./routers/FacultyRouter";
-import AdminRouter from "./routers/AdminRouter";
 import DepartmentRouter from "./routers/DepartmentRouter";
+import ClassRouter from "./routers/ClassRouter";
 
 export class Server {
   public app = express();
@@ -28,9 +27,10 @@ export class Server {
 
   setRoutes() {
     this.app.use("/api/user", UserRouter);
-    this.app.use("/api/admin", AdminRouter);
-    this.app.use("/api/faculty", FacultyRouter);
+
     this.app.use("/api/department",DepartmentRouter)
+    this.app.use('/api/class',ClassRouter);
+
   }
 
   connectMongoDB() {
