@@ -97,4 +97,22 @@ export class ClassController {
       next(error);
     }
   }
+
+  static async deleteClass(req, res, next) {
+    try {
+      const id = req.query.id;
+      if (!id) throw new Error("id is not available");
+
+      const deleted = await Class.findOneAndDelete({ _id: id });
+
+      if (!deleted) {
+        throw new Error("Failed to delete");
+      }
+      return res.json({
+        success: true,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
 }
