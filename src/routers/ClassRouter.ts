@@ -39,7 +39,7 @@ class ClassRouter {
   patchRoutes() {
     //update
     this.router.patch(
-      "/update",
+      "/update/:id",
       ClassValidator.updateClass(),
       GlobalMiddleware.checkError,
       ClassController.updateClass
@@ -48,7 +48,7 @@ class ClassRouter {
 
   deleteRoutes() {
     //delete
-    this.router.delete("/delete", ClassController.deleteClass);
+    this.router.delete("/delete/:id", ClassController.deleteClass);
   }
 }
 

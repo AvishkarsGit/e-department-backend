@@ -27,25 +27,39 @@ export class ClassController {
 
   static async getClasses(req, res, next) {
     try {
-      // pagination params
-      const per_page = parseInt(req.query.size) || 5; // number of records per page
-      const current_page = parseInt(req.query.page) || 1; // current page
+      const per_page = parseInt(req.query.size) || 5;
+      const current_page = parseInt(req.query.page) || 1;
       const skip = (current_page - 1) * per_page;
 
-      const dep = await Department.find();
+      const filter = req.query.filter || "";
+      const regex = filter ? new RegExp(filter, "i") : null;
 
-      // total documents count
-      const total = await Class.countDocuments();
+      const matchStage = regex ? { "department.name": regex } : {};
 
-      // get classes with department populated
-      const classes = await Class.find()
-        .populate("department_id") // only populate department name
-        .skip(skip)
-        .limit(per_page);
+      // Pipeline
+      const pipeline = [
+        {
+          $lookup: {
+            from: "departments", // collection name in MongoDB (lowercase + plural usually)
+            localField: "department_id",
+            foreignField: "_id",
+            as: "department",
+          },
+        },
+        { $unwind: "$department" },
+        { $match: matchStage },
+        {
+          $facet: {
+            metadata: [{ $count: "total" }],
+            data: [{ $skip: skip }, { $limit: per_page }],
+          },
+        },
+      ];
 
-      if (!classes) {
-        throw new Error("Failed to load classes");
-      }
+      const result = await Class.aggregate(pipeline);
+
+      const total = result[0].metadata[0]?.total || 0;
+      const classes = result[0].data;
 
       return res.json({
         success: true,
@@ -64,7 +78,7 @@ export class ClassController {
 
   static async updateClass(req, res, next) {
     try {
-      const id = req.query.id;
+      const id = req.params.id;
       const { department_id, year, semester } = req.body;
       if (!id) {
         throw new Error("ID is not available");
@@ -100,7 +114,7 @@ export class ClassController {
 
   static async deleteClass(req, res, next) {
     try {
-      const id = req.query.id;
+      const id = req.params.id;
       if (!id) throw new Error("id is not available");
 
       const deleted = await Class.findOneAndDelete({ _id: id });
