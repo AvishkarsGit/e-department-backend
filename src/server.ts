@@ -8,16 +8,15 @@ import * as cors from "cors";
 import { getEnvironmentVariables } from "./environments/environment";
 import DepartmentRouter from "./routers/DepartmentRouter";
 import ClassRouter from "./routers/ClassRouter";
+import SubjectRouter from "./routers/SubjectRouter";
 
 export class Server {
   public app = express();
-  
 
   constructor() {
     this.setConfigs();
     this.setRoutes();
   }
-
 
   setConfigs() {
     this.connectMongoDB();
@@ -27,10 +26,9 @@ export class Server {
 
   setRoutes() {
     this.app.use("/api/user", UserRouter);
-
-    this.app.use("/api/department",DepartmentRouter)
-    this.app.use('/api/class',ClassRouter);
-
+    this.app.use("/api/department", DepartmentRouter);
+    this.app.use("/api/class", ClassRouter);
+    this.app.use("/api/subject",SubjectRouter);
   }
 
   connectMongoDB() {
