@@ -32,14 +32,14 @@ class DepartmentRouter {
     }
     deleteroutes() {
         this.router.delete(
-            "/delete-department",
+            "/delete-department/:id",
             // GlobalMiddleware.auth,
             DepartmentController.deleteDepartment
         )
     }
     patchroutes() {
         this.router.patch(
-            "/update-department",
+            "/update-department/:id",
             DepartmentController.updateDepartment
         )
     }

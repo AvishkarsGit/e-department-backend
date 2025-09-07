@@ -10,6 +10,7 @@ export class DepartmentController {
                 success: true,
                 data: data
             })
+
         }
         catch (error) {
             next(error);
@@ -19,10 +20,34 @@ export class DepartmentController {
     //Read Data
     static async readDepartment(req, res, next) {
         try {
-            const AlldepartmentName = await Department.find();
-            res.status(201).json({
+
+            const per_page = parseInt(req.query.size) || 5;
+            const current_page = parseInt(req.query.page) || 1;
+            const skip = (current_page - 1) * per_page;
+           
+
+            const filter = req.query.filter || "";
+            let query = {};
+            
+            if (filter) {
+                const regex = new RegExp(filter, 'i');
+                query = {
+                    name: regex
+                }
+            }
+            
+            const total = await Department.countDocuments(query);
+            const departments = await Department.find(query).skip(skip).limit(per_page);
+            if (!departments) throw new Error('no more Departments');
+            return res.json({
                 success: true,
-                Alldata: AlldepartmentName
+                data: departments,
+                pagination: {
+                    total,
+                    current_page,
+                    per_page,
+                    total_pages: Math.ceil(total / per_page)
+                }
             })
         }
         catch (error) {
@@ -32,18 +57,18 @@ export class DepartmentController {
     //Update Department
     static async updateDepartment(req, res, next) {
         try {
-            const { id } = req.query;
+            const id = req.params.id;
             // console.log()
             const { name } = req.body;
             const updatedData = await Department.findByIdAndUpdate(
                 id,
-                { name:name },
-                { new: true}
+                { name: name },
+                { new: true }
             );
             if (!updatedData) return res.status(404).json({ success: false, message: "Department is not found" });
             res.json({
-                success:true,
-                data:updatedData
+                success: true,
+                data: updatedData
             })
         } catch (error) {
             next(error);
@@ -52,18 +77,18 @@ export class DepartmentController {
 
     //Delete  Department
 
-    static async deleteDepartment(req,res,next){
-        try{
-        const id = req.query.id;
-        const deletedDepartment = await Department.findByIdAndDelete(
-            id
-        );
-        if(!deletedDepartment){
-            return res.status(403).json({success:false , message:"Department is not found"});
-        };
-        res.json({success:true,message:"Department Deleted Successfully"});
-        }catch(error){
-           next(error);
+    static async deleteDepartment(req, res, next) {
+        try {
+            const id = req.params.id;
+            const deletedDepartment = await Department.findByIdAndDelete(
+                id
+            );
+            if (!deletedDepartment) {
+                return res.status(403).json({ success: false, message: "Department is not found" });
+            };
+            res.json({ success: true, message: "Department Deleted Successfully" });
+        } catch (error) {
+            next(error);
         };
     }
 }

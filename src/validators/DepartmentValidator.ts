@@ -7,11 +7,11 @@ export class DepartmentValidator {
         return [
             body("name", "name is required")
                 .isString()
-                .custom((name,{req})=>{
-                    return Department.findOne({name,}).then((dept)=>{
-                        if(dept){
+                .custom((name, { req }) => {
+                    return Department.findOne({ name: { $regex: new RegExp(`^${name}$`, "i") } }).then((dept) => {
+                        if (dept) {
                             throw new Error(`${name} is alredy present`);
-                        }else{
+                        } else {
                             return true;
                         }
                     })

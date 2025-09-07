@@ -8,6 +8,7 @@ import * as cors from "cors";
 import { getEnvironmentVariables } from "./environments/environment";
 import DepartmentRouter from "./routers/DepartmentRouter";
 import ClassRouter from "./routers/ClassRouter";
+import FacultyRouter from "./routers/FacultyRouter";
 
 export class Server {
   public app = express();
@@ -27,9 +28,9 @@ export class Server {
 
   setRoutes() {
     this.app.use("/api/user", UserRouter);
-
     this.app.use("/api/department",DepartmentRouter)
-    this.app.use('/api/class',ClassRouter);
+    this.app.use("/api/class",ClassRouter);
+    this.app.use("/api/faculty",FacultyRouter);
 
   }
 
