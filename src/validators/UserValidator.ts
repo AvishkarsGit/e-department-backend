@@ -1,7 +1,6 @@
 import { body, query } from "express-validator";
 import User from "../models/User";
 
-
 export class UserValidator {
   static signup() {
     return [
@@ -47,7 +46,7 @@ export class UserValidator {
         .isLength({ min: 10, max: 10 })
         .withMessage("Phone number should be 10 digit"),
 
-      body("photo", "Profile url is needed").isString(),
+      body("photo", "Profile photo is needed"),
       body("role", "user role is important").isString(),
     ];
   }
@@ -131,6 +130,10 @@ export class UserValidator {
       body("phone", "Phone number is required").isString(),
       body("role", "Role is required").isString(),
       body("password", "Password is required").isString(),
+      body("photo", "Photo is required").custom((photo, { req }) => {
+        if (!req.file) throw new Error("Photo is required");
+        return true;
+      }),
     ];
   }
 
@@ -140,6 +143,14 @@ export class UserValidator {
       body("email", "Email is required").isString(),
       body("phone", "Phone number is required").isString(),
       body("role", "Role is required").isString(),
+    ];
+  }
+
+  static updateProfile() {
+    return [
+      body("name", "Name is required").isString(),
+      body("email", "Email is required").isString(),
+      body("phone", "Phone is required").isString(),
     ];
   }
 }

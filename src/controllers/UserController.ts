@@ -3,12 +3,22 @@ import User from "../models/User";
 import { JWT } from "../utils/JWT";
 import { NodeMailer } from "../utils/NodeMailer";
 import { Utils } from "../utils/Utils";
+import { Cloudinary } from "../utils/Cloudinary";
+import { read } from "fs";
 
 export class UserController {
   static async signup(req, res, next) {
     try {
       //get data from the body
       const { name, email, username, password, phone, photo, role } = req.body;
+
+      //get file path
+      // const path = req.file.path;
+      //  if (!path) throw new Error("file not present");
+
+      //upload on cloudinary
+      //const result = await Cloudinary.uploadToCloud(path);
+      // photo = result?.secure_url;
 
       //generate verification token
       const verification_token = Utils.generateVerificationToken();
@@ -49,7 +59,7 @@ export class UserController {
 
       return res.json({
         success: true,
-
+        // result,
         data: {
           accessToken,
           refreshToken,
@@ -380,15 +390,19 @@ export class UserController {
 
       const username = Utils.generateUsername(name);
       const hashedPass = await JWT.encryptPassword(password);
+      let photo;
+      if (req?.file) {
+        const result = await Cloudinary.uploadToCloud(req.file.path);
+        photo = result.secure_url;
+      }
+
       const user = await new User({
         name,
         email,
         phone,
-        photo: " ",
+        photo,
         role,
         username,
-        verification_token: " ",
-        reset_password_verification_token: " ",
         password: hashedPass,
       }).save();
 
@@ -410,21 +424,33 @@ export class UserController {
     try {
       const { name, email, phone, role } = req.body;
 
+      //get file path
+
+      let photo;
+      if (req?.file) {
+        const path = req.file.path;
+        //upload on cloudinary
+        const result = await Cloudinary.uploadToCloud(path);
+        photo = result?.secure_url;
+      }
+
       const id = req.params.id;
       if (!id) {
         throw new Error("id is not available");
       }
+      const data = {
+        name,
+        email,
+        phone,
+        role,
+      };
 
+      const finalData = photo ? { ...data, photo } : data;
       const updated_user = await User.findOneAndUpdate(
         {
           _id: id,
         },
-        {
-          name,
-          email,
-          phone,
-          role,
-        },
+        { ...finalData },
         {
           new: true,
         }
@@ -457,6 +483,45 @@ export class UserController {
 
       return res.json({
         success: true,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  static async updateProfile(req, res, next) {
+    try {
+      const { name, email, phone } = req.body;
+
+      const id = req.user.id; 
+
+      //check if photo is selected
+      let photo;
+      if (req.file) {
+        const result = await Cloudinary.uploadToCloud(req.file.path);
+        photo = result.secure_url;
+      }
+
+      let data = { name, email, phone };
+      let finalData = photo ? { ...data, photo } : data;
+
+      const updatedData = await User.findOneAndUpdate(
+        {
+          _id: id,
+        },
+        { ...finalData },
+        {
+          new: true,
+        }
+      );
+
+      if (!updatedData) {
+        throw new Error("Failed to update");
+      }
+
+      return res.json({
+        success: true,
+        data: updatedData,
       });
     } catch (error) {
       next(error);

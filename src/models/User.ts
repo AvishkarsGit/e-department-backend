@@ -14,12 +14,12 @@ const userSchema = new mongoose.Schema({
     required: true,
   },
   email_verified: { type: String, required: true, default: false },
-  verification_token: { type: String, required: true, default: null },
+  verification_token: { type: String, required: true, default: "000000" },
   verification_token_time: { type: Date, required: true, default: Date.now() },
   reset_password_verification_token: {
     type: String,
     required: true,
-    default: null,
+    default: "000000",
   },
   reset_password_verification_token_time: {
     type: Date,

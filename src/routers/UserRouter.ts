@@ -2,6 +2,7 @@ import { Router } from "express";
 import { GlobalMiddleware } from "../middlewares/GlobalMiddleware";
 import { UserValidator } from "../validators/UserValidator";
 import { UserController } from "../controllers/UserController";
+import { Utils } from "../utils/Utils";
 
 class UserRouter {
   public router: Router;
@@ -31,7 +32,11 @@ class UserRouter {
     this.router.get("/users", GlobalMiddleware.auth, UserController.getUsers);
 
     //get all users
-    this.router.get("/allUsers", GlobalMiddleware.auth, UserController.getAllUsers);
+    this.router.get(
+      "/allUsers",
+      GlobalMiddleware.auth,
+      UserController.getAllUsers
+    );
 
     //check if admin is exists or not
     this.router.get("/checkAdminExists", UserController.checkAdminExists);
@@ -43,6 +48,7 @@ class UserRouter {
       "/signup",
       UserValidator.signup(),
       GlobalMiddleware.checkError,
+      new Utils().multer.single("photo"), //upload photo
       UserController.signup
     );
 
@@ -66,9 +72,20 @@ class UserRouter {
     this.router.post(
       "/add",
       GlobalMiddleware.auth,
+      new Utils().multer.single("photo"),
       UserValidator.addUser(),
       GlobalMiddleware.checkError,
       UserController.addUser
+    );
+
+    //update profile data
+    this.router.post(
+      "/update_profile",
+      GlobalMiddleware.auth,
+      new Utils().multer.single("photo"),
+      UserValidator.updateProfile(),
+      GlobalMiddleware.checkError,
+      UserController.updateProfile
     );
   }
 
@@ -100,18 +117,22 @@ class UserRouter {
       UserController.resetPassword
     );
 
-     //update users data
-      this.router.patch(
-        "/update/:id",
-        UserValidator.updateUser(),
-        GlobalMiddleware.checkError,
-        UserController.updateUser
-      );
-  
+    //update users data
+    this.router.patch(
+      "/update/:id",
+      new Utils().multer.single("photo"), //upload photo
+      UserValidator.updateUser(),
+      GlobalMiddleware.checkError,
+      UserController.updateUser
+    );
   }
 
   deleteRoutes() {
-    this.router.delete("/delete/:id", GlobalMiddleware.auth, UserController.deleteUser);
+    this.router.delete(
+      "/delete/:id",
+      GlobalMiddleware.auth,
+      UserController.deleteUser
+    );
   }
 }
 
