@@ -62,4 +62,6 @@ export class Utils {
 
     return `${nameArr[0]}${symbol}${numStr}${endSymbol}`;
   }
+
+
 }

@@ -20,13 +20,7 @@ class UserRouter {
     //get profile
     this.router.get("/profile", GlobalMiddleware.auth, UserController.profile);
 
-    //send reset password token
-    this.router.get(
-      "/send/reset/password/token",
-      UserValidator.sendResetPasswordToken(),
-      GlobalMiddleware.checkError,
-      UserController.sendResendPasswordToken
-    );
+    
 
     //get users with pagination
     this.router.get("/users", GlobalMiddleware.auth, UserController.getUsers);
@@ -46,9 +40,9 @@ class UserRouter {
     // signup
     this.router.post(
       "/signup",
+      new Utils().multer.single("photo"), //upload photo
       UserValidator.signup(),
       GlobalMiddleware.checkError,
-      new Utils().multer.single("photo"), //upload photo
       UserController.signup
     );
 
@@ -92,6 +86,16 @@ class UserRouter {
   putRoutes() {}
 
   patchRoutes() {
+
+    //send reset password token
+    this.router.patch(
+      "/send/reset/password/token",
+      UserValidator.sendResetPasswordToken(),
+      GlobalMiddleware.checkError,
+      UserController.sendResendPasswordToken
+    );
+
+
     //send verification token email again
     this.router.patch(
       "/send/verification/token",

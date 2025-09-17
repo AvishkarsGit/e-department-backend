@@ -26,10 +26,14 @@ const userSchema = new mongoose.Schema({
     required: true,
     default: Date.now(),
   },
+  cloud_public_id: {
+    type: String,
+    required: false,
+  },
   account_status: {
     type: Boolean,
     required: true,
-    default: true,
+    default: false,
   },
   created_at: { type: Date, default: Date.now() },
   updated_at: { type: Date, default: Date.now() },

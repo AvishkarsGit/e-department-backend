@@ -45,9 +45,11 @@ export class UserValidator {
         .isString()
         .isLength({ min: 10, max: 10 })
         .withMessage("Phone number should be 10 digit"),
-
-      body("photo", "Profile photo is needed"),
       body("role", "user role is important").isString(),
+      body("photo", "Photo is required").custom((photo, { req }) => {
+        if (!req.file) throw new Error("Photo is required");
+        return true;
+      }),
     ];
   }
 

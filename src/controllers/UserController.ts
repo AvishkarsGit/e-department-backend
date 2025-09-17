@@ -10,15 +10,17 @@ export class UserController {
   static async signup(req, res, next) {
     try {
       //get data from the body
-      const { name, email, username, password, phone, photo, role } = req.body;
+      const { name, email, username, password, phone, role, account_status } =
+        req.body;
 
-      //get file path
-      // const path = req.file.path;
-      //  if (!path) throw new Error("file not present");
-
-      //upload on cloudinary
-      //const result = await Cloudinary.uploadToCloud(path);
-      // photo = result?.secure_url;
+      let photo;
+      let public_id;
+      console.log("file", req.file);
+      if (req?.file) {
+        const result = await Cloudinary.uploadToCloud(req.file.path);
+        photo = result?.secure_url;
+        public_id = result?.public_id;
+      }
 
       //generate verification token
       const verification_token = Utils.generateVerificationToken();
@@ -35,6 +37,8 @@ export class UserController {
         phone,
         photo,
         role,
+        account_status,
+        cloud_public_id: public_id,
         verification_token,
         verification_token_time: Date.now() + Utils.MAX_TOKEN_TIME,
       };
@@ -283,13 +287,16 @@ export class UserController {
   //check if admin is exists
   static async checkAdminExists(req, res, next) {
     try {
-      const admin_exists = await User.find({ role: "admin" });
+      const admin_exists = await User.findOne({ role: "admin" });
+      let isAdmin = false;
       if (admin_exists) {
-        return false;
+        isAdmin = true;
       }
-
       return res.json({
-        data: admin_exists,
+        success: true,
+        data: {
+          admin_exists: isAdmin,
+        },
       });
     } catch (error) {
       next(error);
@@ -390,10 +397,15 @@ export class UserController {
 
       const username = Utils.generateUsername(name);
       const hashedPass = await JWT.encryptPassword(password);
+
+      if (role === "admin") throw new Error("Only one admin is allowed!...");
+
       let photo;
+      let public_id;
       if (req?.file) {
         const result = await Cloudinary.uploadToCloud(req.file.path);
         photo = result.secure_url;
+        public_id = result?.public_id;
       }
 
       const user = await new User({
@@ -403,6 +415,7 @@ export class UserController {
         photo,
         role,
         username,
+        cloud_public_id: public_id,
         password: hashedPass,
       }).save();
 
@@ -424,25 +437,45 @@ export class UserController {
     try {
       const { name, email, phone, role } = req.body;
 
-      //get file path
-
-      let photo;
-      if (req?.file) {
-        const path = req.file.path;
-        //upload on cloudinary
-        const result = await Cloudinary.uploadToCloud(path);
-        photo = result?.secure_url;
-      }
-
       const id = req.params.id;
       if (!id) {
         throw new Error("id is not available");
       }
+
+      // find user first
+      const user = await User.findById(id);
+      if (!user) {
+        throw new Error("User not found");
+      }
+
+      let public_id = user.cloud_public_id;
+      let photo;
+
+      //get file path
+      if (req?.file) {
+        // delete old photo if exists
+        if (public_id) {
+          const deleted = await Cloudinary.deleteFromCloud(public_id);
+          if (!deleted)
+            throw new Error("Failed to delete old image from Cloudinary");
+        }
+
+        // upload new photo
+        const result = await Cloudinary.uploadToCloud(req.file.path);
+        if (!result?.secure_url || !result?.public_id) {
+          throw new Error("Failed to upload new image to Cloudinary");
+        }
+
+        photo = result.secure_url;
+        public_id = result.public_id;
+      }
+
       const data = {
         name,
         email,
         phone,
         role,
+        cloud_public_id: public_id,
       };
 
       const finalData = photo ? { ...data, photo } : data;
@@ -476,7 +509,17 @@ export class UserController {
       if (!id) {
         throw new Error("Id is not available");
       }
-      const deletedUser = await User.findOneAndDelete({ _id: id });
+
+      //find user first
+      const user = await User.findOne({ _id: id });
+      if (!user) throw new Error("User not found");
+
+      //delete image from cloudinary
+      const deleted = await Cloudinary.deleteFromCloud(user?.cloud_public_id);
+      if (!deleted) throw new Error("failed to delete previous image");
+
+      const deletedUser = await User.findOneAndDelete({ _id: user?._id });
+
       if (!deletedUser) {
         throw new Error("failed to delete user");
       }
@@ -493,16 +536,32 @@ export class UserController {
     try {
       const { name, email, phone } = req.body;
 
-      const id = req.user.id; 
+      const id = req.user.id;
+      if (!id) throw new Error("Id not found");
+
+      //find user first
+      const user = await User.findOne({ _id: id });
+      if (!user) throw new Error("User not found");
+
+      let public_id = user?.cloud_public_id;
 
       //check if photo is selected
       let photo;
       if (req.file) {
+        //check if public id is available
+        if (!public_id) throw new Error("You have no public id");
+
+        //first delete previous photo from cloudinary
+        const deleted = await Cloudinary.deleteFromCloud(public_id);
+        if (!deleted) throw new Error("Failed to delete image from cloud");
+
+        //upload to the cloud
         const result = await Cloudinary.uploadToCloud(req.file.path);
-        photo = result.secure_url;
+        photo = result?.secure_url;
+        public_id = result?.public_id;
       }
 
-      let data = { name, email, phone };
+      let data = { name, email, phone, cloud_public_id: public_id };
       let finalData = photo ? { ...data, photo } : data;
 
       const updatedData = await User.findOneAndUpdate(
