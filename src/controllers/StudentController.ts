@@ -6,11 +6,18 @@ import { JWT } from "../utils/JWT";
 export class StudentController {
   static async addStudent(req, res, next) {
     try {
-      const { name, email, username, password, phone, guardian, class_id } =
-        req.body;
+      const {
+        name,
+        email,
+        username,
+        password,
+        rollNo,
+        phone,
+        guardian,
+        class_id,
+      } = req.body;
 
       let guardian_data = JSON.parse(guardian);
-
       //encrypt password
       const hashPass = await JWT.encryptPassword(password);
 
@@ -44,6 +51,7 @@ export class StudentController {
       const student = await new Student({
         user_id: user._id,
         class_id,
+        rollNo,
         guardian: guardian_data,
       }).save();
 
@@ -145,8 +153,16 @@ export class StudentController {
 
   static async updateStudent(req, res, next) {
     try {
-      const { name, email, username, phone, guardian, class_id, password } =
-        req.body;
+      const {
+        name,
+        email,
+        username,
+        phone,
+        guardian,
+        rollNo,
+        class_id,
+        password,
+      } = req.body;
 
       // Extract IDs
       const user_id = req.query.user_id || req.params.user_id;
@@ -215,7 +231,7 @@ export class StudentController {
       // Update student
       const updatedStudent = await Student.findByIdAndUpdate(
         student_id,
-        { user_id, class_id, guardian: guardian_data },
+        { user_id, class_id, guardian: guardian_data, rollNo },
         { new: true }
       );
       if (!updatedStudent) throw new Error("Student not found");
@@ -247,8 +263,8 @@ export class StudentController {
       if (!public_id) throw new Error("public id not available");
 
       //delete image from cloud
-      const isDeleted =  await Cloudinary.deleteFromCloud(public_id);
-      if (!isDeleted) throw new Error('failed to delete data');
+      const isDeleted = await Cloudinary.deleteFromCloud(public_id);
+      if (!isDeleted) throw new Error("failed to delete data");
 
       //delete first user
       const deletedUser = await User.findOneAndDelete({ _id: user_id });
