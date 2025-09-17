@@ -1,6 +1,6 @@
 import { body } from 'express-validator';
 import Department from '../models/Department';
-import { json } from 'body-parser';
+
 
 export class DepartmentValidator {
     static createDepartment() {
