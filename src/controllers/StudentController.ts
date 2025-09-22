@@ -66,6 +66,8 @@ export class StudentController {
     }
   }
 
+  
+
   static async getStudents(req, res, next) {
     try {
       const per_page = parseInt(req.query.size) || 5;
