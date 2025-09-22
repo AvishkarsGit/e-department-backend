@@ -1,9 +1,11 @@
 import Student from "../models/Student";
+import Subject from "../models/Subject";
 import User from "../models/User";
 import { Cloudinary } from "../utils/Cloudinary";
 import { JWT } from "../utils/JWT";
 
 export class StudentController {
+  
   static async addStudent(req, res, next) {
     try {
       const {
@@ -75,8 +77,26 @@ export class StudentController {
       const filter = req.query.filter || "";
       const regex = filter ? new RegExp(filter, "i") : null;
 
-      const pipeline = [
-        // Join user
+      const subject_id = req.query.subject_id || req.query.subject;
+
+      let class_id = null;
+
+      // ✅ Only if subject_id is provided and valid, lookup its class_id
+      if (subject_id && subject_id !== "null" && subject_id !== "undefined") {
+        const subject = await Subject.findById(subject_id).select("class_id");
+        if (!subject) throw new Error("Subject not found");
+        class_id = subject.class_id;
+      }
+
+      const pipeline = [];
+
+      // ✅ If subject filter applied → restrict by class_id
+      if (class_id) {
+        pipeline.push({ $match: { class_id } });
+      }
+
+      // Join user
+      pipeline.push(
         {
           $lookup: {
             from: "users",
@@ -85,22 +105,25 @@ export class StudentController {
             as: "user",
           },
         },
-        { $unwind: "$user" },
+        { $unwind: "$user" }
+      );
 
-        // Apply filter on user fields
-        {
-          $match: regex
-            ? {
-                $or: [
-                  { "user.name": regex },
-                  { "user.email": regex },
-                  { "user.username": regex },
-                ],
-              }
-            : {},
-        },
+      // Apply search filter on user fields and roll_no
+      if (regex) {
+        pipeline.push({
+          $match: {
+            $or: [
+              { "user.name": regex },
+              { "user.email": regex },
+              { "user.username": regex },
+              { roll_no: regex },
+            ],
+          },
+        });
+      }
 
-        // Join class
+      // Join class
+      pipeline.push(
         {
           $lookup: {
             from: "classes",
@@ -109,9 +132,11 @@ export class StudentController {
             as: "classData",
           },
         },
-        { $unwind: "$classData" },
+        { $unwind: "$classData" }
+      );
 
-        // Join department
+      // Join department
+      pipeline.push(
         {
           $lookup: {
             from: "departments",
@@ -120,16 +145,16 @@ export class StudentController {
             as: "department",
           },
         },
-        { $unwind: "$department" },
+        { $unwind: "$department" }
+      );
 
-        // Facet for pagination
-        {
-          $facet: {
-            metadata: [{ $count: "total" }],
-            data: [{ $skip: skip }, { $limit: per_page }],
-          },
+      // Facet for pagination
+      pipeline.push({
+        $facet: {
+          metadata: [{ $count: "total" }],
+          data: [{ $skip: skip }, { $limit: per_page }],
         },
-      ];
+      });
 
       const result = await Student.aggregate(pipeline);
 

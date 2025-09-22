@@ -55,19 +55,19 @@ export class StudentValidator {
       body("username", "Username is required").isString(),
       body("phone", "Phone is required").isString(),
       body("class_id", "Class should be there").isString(),
-      body("rollNo", "Roll number is mandatory")
-        .isNumeric()
-        .custom((rollNo, { req }) => {
-          return Student.findOne({ rollNo, class_id: req.body.class_id }).then(
-            (student) => {
-              if (student) {
-                throw new Error("This roll no is already taken by other");
-              } else {
-                return true;
-              }
-            }
-          );
-        }),
+      // body("rollNo", "Roll number is mandatory")
+      //   .isNumeric()
+      //   .custom((rollNo, { req }) => {
+      //     return Student.findOne({ rollNo, class_id: req.body.class_id }).then(
+      //       (student) => {
+      //         if (student) {
+      //           throw new Error("This roll no is already taken by other");
+      //         } else {
+      //           return true;
+      //         }
+      //       }
+      //     );
+      //   }),
       // ✅ guardian validation as array
       body("guardian", "Guardian details required")
         .isJSON()
