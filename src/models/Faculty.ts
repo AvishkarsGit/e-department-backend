@@ -12,7 +12,7 @@ const facultySchema = new mongoose.Schema({
         ref: "Department",
          required:true
     },
-    
+
     subjects: [
         {
             type: mongoose.Schema.Types.ObjectId,
@@ -29,4 +29,4 @@ const facultySchema = new mongoose.Schema({
     }
 });
 
-export default model("faculty", facultySchema);
+export default model("Faculty", facultySchema);

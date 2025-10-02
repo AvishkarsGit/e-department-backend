@@ -11,9 +11,6 @@ export class Cloudinary {
         //successfully upload file to cloudinary, unlink/delete the local files
         fs.unlinkSync(filePath);
       }
-
-      console.log(uploadResult);
-
       return uploadResult;
     } catch (error) {
       throw error;
@@ -32,7 +29,7 @@ export class Cloudinary {
 
   static async extractPublicIdFromCloud(url: string) {
     try {
-      
+
     } catch (error) {
       throw error;
     }

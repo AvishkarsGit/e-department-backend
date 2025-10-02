@@ -12,6 +12,8 @@ import SubjectRouter from "./routers/SubjectRouter";
 import { v2 as cloudinary } from "cloudinary";
 import StudentsRouter from "./routers/StudentsRouter";
 import FacultyRouter from "./routers/FacultyRouter";
+import AttendanceRouter from "./routers/AttendanceRouter";
+import PeriodsRouter from "./routers/PeriodsRouter";
 
 export class Server {
   public app = express();
@@ -40,7 +42,9 @@ export class Server {
     this.app.use("/api/class", ClassRouter);
     this.app.use("/api/subject", SubjectRouter);
     this.app.use("/api/student", StudentsRouter);
-    this.app.use("/api/faculty",FacultyRouter);
+    this.app.use("/api/faculty", FacultyRouter);
+    this.app.use("/api/attendance", AttendanceRouter);
+    this.app.use("/api/periods", PeriodsRouter);
   }
 
   connectMongoDB() {

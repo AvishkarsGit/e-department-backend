@@ -19,7 +19,7 @@ class StudentsRouter {
     //get all students data
     this.router.get(
       "/students",
-      // GlobalMiddleware.auth,
+      GlobalMiddleware.auth,
       StudentController.getStudents
     );
   }
