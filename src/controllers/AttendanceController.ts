@@ -253,6 +253,7 @@ export class AttendanceController {
         to_date,
         page = 1, // Default to page 1
         limit = 10, // Default to 10 results per page
+        search
       } = req.query;
 
       if (!class_id) {
@@ -400,7 +401,21 @@ export class AttendanceController {
         },
         { $unwind: "$user" }, // Assumes every student has a user record
 
-        // Stage 8: Extract Name and Roll No
+        //stage 8.Optional search filter on name or rollNo
+        ...(search
+          ? [
+              {
+                $match: {
+                  $or: [
+                    { "user.name": { $regex: search, $options: "i" } },
+                    { "student.rollNo": { $regex: search, $options: "i" } },
+                  ],
+                },
+              },
+            ]
+          : []),
+
+        // Stage 9: Extract Name and Roll No
         {
           $addFields: {
             student_name: "$user.name",
@@ -438,12 +453,10 @@ export class AttendanceController {
       const summaries = await Attendance.aggregate(summaryPipeline);
 
       if (!summaries || summaries.length === 0) {
-        return res
-          .status(404)
-          .json({
-            success: false,
-            message: "No attendance summary found in the specified range.",
-          });
+        return res.status(404).json({
+          success: false,
+          message: "No attendance summary found in the specified range.",
+        });
       }
 
       return res.json({
