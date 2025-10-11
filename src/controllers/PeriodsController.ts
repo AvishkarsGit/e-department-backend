@@ -1,7 +1,7 @@
 import Period from "../models/Period";
 
 export class PeriodsController {
-  
+
   static async savePeriod(req, res, next) {
     try {
       const { period_text, start_time, ending_time } = req.body;
@@ -71,6 +71,10 @@ export class PeriodsController {
       );
 
       if (!isUpdated) throw new Error("failed to update");
+      return res.json({
+        success: true,
+        data: isUpdated,
+      });
     } catch (error) {
       next(error);
     }
@@ -89,3 +93,4 @@ export class PeriodsController {
     }
   }
 }
+  

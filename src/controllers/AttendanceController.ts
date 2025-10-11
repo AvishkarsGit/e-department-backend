@@ -6,7 +6,6 @@ import ClassSession from "../models/ClassSession";
 import Period from "../models/Period";
 import Student from "../models/Student";
 import Subject from "../models/Subject";
-import User from "../models/User";
 
 export class AttendanceController {
   static async getSubjects(req, res, next) {
@@ -103,6 +102,7 @@ export class AttendanceController {
       next(error);
     }
   }
+
   static async saveAttendance(req, res, next) {
     const session = await mongoose.startSession();
     session.startTransaction();
@@ -262,6 +262,7 @@ export class AttendanceController {
           .json({ success: false, message: "class_id is required." });
       }
 
+
       const isAllSubjects =
         subject_id?.toString().toLowerCase() === "all" || !subject_id;
       const classObjectId = new mongoose.Types.ObjectId(class_id as string);
@@ -320,6 +321,7 @@ export class AttendanceController {
         {
           $group: {
             _id: { student_id: "$student_id", subject_id: "$subject_id" },
+            class_id: { $first: "$class_id" }, // ✅ preserve class_id here
             total_classes_attended: { $sum: 1 },
             present_classes: {
               $sum: { $cond: [{ $eq: ["$status", "present"] }, 1, 0] },
@@ -344,6 +346,7 @@ export class AttendanceController {
         {
           $group: {
             _id: "$_id.student_id",
+            class_id: { $first: "$class_id" }, // <-- carry forward class_id
             total_classes: { $sum: "$total_classes_attended" },
             attended_classes: { $sum: "$present_classes" },
             subjects_summary: {
@@ -354,6 +357,7 @@ export class AttendanceController {
                 attended_classes: "$present_classes",
               },
             },
+            specific_subject_id: { $first: "$_id.subject_id" }, // <-- keep subject_id
             // Capture the specific subject name for non-all queries
             specific_subject_name: {
               $first: { $cond: [isAllSubjects, "$$REMOVE", "$subject_name"] },
@@ -378,6 +382,8 @@ export class AttendanceController {
             },
           },
         },
+
+
 
         // Stage 6: Lookup Student Details (for rollNo and user_id)
         {
@@ -432,6 +438,11 @@ export class AttendanceController {
         {
           $project: {
             _id: 0,
+            class_id: 1, // <-- added
+            subject_id: {
+              $cond: [isAllSubjects, "$$REMOVE", "$specific_subject_id"],
+            }, // <-- added
+
             student_id: "$_id",
             student_name: 1,
             student_rollNo: 1,
@@ -461,10 +472,12 @@ export class AttendanceController {
 
       return res.json({
         success: true,
-        page: parseInt(page as string, 10),
-        limit: limitInt,
-        totalPages: totalPages,
-        totalResults: totalDocuments,
+        pagination: {
+          page: parseInt(page as string, 10),
+          limit: limitInt,
+          totalPages: totalPages,
+          totalResults: totalDocuments,
+        },
         data: summaries,
       });
     } catch (error) {
@@ -495,4 +508,67 @@ export class AttendanceController {
       next(error);
     }
   }
+
+  static async getStudentAttendance(req, res, next) {
+    try {
+      const {
+        subject_id,
+        class_id,
+        student_id,
+        from_date,
+        to_date,
+        page = 1,
+        size = 20,
+      } = req.query;
+
+      //check if date is present or not
+
+      const pageNum = Math.max(1, parseInt(page));
+      const limitNum = Math.max(1, parseInt(size));
+      // Base query
+      const query: any = {
+        subject_id,
+        class_id,
+        student_id,
+      };
+      if (from_date && to_date) {
+        query.date = { $gte: from_date, $lte: to_date };
+      }
+
+      // Execute count and data fetch in parallel
+      const [attendances, totalRecords] = await Promise.all([
+        Attendance.find(query)
+          .select("session_id date status")
+          .populate({
+            path: "session_id",
+            select: "period",
+            populate: {
+              path: "period",
+              select: "period_text",
+            },
+          })
+          .sort({ date: -1 }) // newest first
+          .skip((pageNum - 1) * limitNum)
+          .limit(limitNum)
+          .lean(),
+        Attendance.countDocuments(query),
+      ]);
+
+      return res.json({
+        success: true,
+        pagination: {
+          totalRecords,
+          totalPages: Math.ceil(totalRecords / limitNum),
+          currentPage: pageNum,
+          pageSize: limitNum,
+          hasNextPage: pageNum * limitNum < totalRecords,
+        },
+        data: attendances,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  
 }

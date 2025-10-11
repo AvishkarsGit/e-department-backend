@@ -1,3 +1,5 @@
+import Class from "../models/Class";
+import Department from "../models/Department";
 import Student from "../models/Student";
 import User from "../models/User";
 import { Cloudinary } from "../utils/Cloudinary";
@@ -57,16 +59,25 @@ export class StudentController {
 
       if (!student) throw new Error("Failed to save student's data");
 
+      const classData = await Class.findOne({ _id: class_id })
+        .populate("department_id")
+        .lean();
+      if (!classData) {
+        throw new Error("class not found");
+      }
+      // 4️⃣ Rename populated field for cleaner structure
+      const classDataObj = classData as any;
+      classDataObj.department = classDataObj.department_id;
+      delete classData.department_id;
+
       return res.json({
         success: true,
-        data: { user, student },
+        data: { user, student, classData: classDataObj },
       });
     } catch (error) {
       next(error);
     }
   }
-
-  
 
   static async getStudents(req, res, next) {
     try {
@@ -119,10 +130,10 @@ export class StudentController {
             from: "departments",
             localField: "classData.department_id",
             foreignField: "_id",
-            as: "department",
+            as: "classData.department",
           },
         },
-        { $unwind: "$department" },
+        { $unwind: "$classData.department" },
 
         // Facet for pagination
         {
@@ -238,9 +249,24 @@ export class StudentController {
       );
       if (!updatedStudent) throw new Error("Student not found");
 
+      const classData = await Class.findOne({ _id: class_id })
+        .populate("department_id")
+        .lean();
+      if (!classData) {
+        throw new Error("class not found");
+      }
+      // 4️⃣ Rename populated field for cleaner structure
+      const classDataObj = classData as any;
+      classDataObj.department = classDataObj.department_id;
+      delete classData.department_id;
+
       return res.json({
         success: true,
-        data: { updatedUser, updatedStudent },
+        data: {
+          user: updatedUser,
+          student: updatedStudent,
+          classData: classDataObj,
+        },
       });
     } catch (error) {
       next(error);

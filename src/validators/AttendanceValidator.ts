@@ -48,4 +48,11 @@ export class AttendanceValidator {
       query("subject_id", "Subject should be there").isString(),
     ];
   }
+
+  static getStudentAttendance() {
+    return [
+      query("subject_id", "Subject not provided").isString(),
+      query("student_id", "Student information not provided").isString(),
+    ];
+  }
 }

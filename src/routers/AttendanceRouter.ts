@@ -60,6 +60,17 @@ class AttendanceRouter {
       GlobalMiddleware.checkError,
       AttendanceController.fetchAttendanceSummary
     );
+
+
+    //get particular student attendance.
+    this.router.get(
+      "/getStudentAttendance",
+      GlobalMiddleware.auth,
+      AttendanceValidator.getStudentAttendance(),
+      GlobalMiddleware.checkError,
+      AttendanceController.getStudentAttendance
+    );
+    
   }
   postRoutes() {
     this.router.post(

@@ -15,9 +15,19 @@ export class SubjectController {
         throw new Error("failed to add subject");
       }
 
+      const classData = await Class.findOne({ _id: class_id })
+        .populate("department_id")
+        .lean();
+      if (!classData) {
+        throw new Error("class not found");
+      }
+      // 4️⃣ Rename populated field for cleaner structure
+      const classDataObj = classData as any;
+      classDataObj.department = classDataObj.department_id;
+      delete classData.department_id;
       return res.json({
         success: true,
-        data: subject,
+        data: { subject, classData: classDataObj },
       });
     } catch (error) {
       next(error);
@@ -145,9 +155,20 @@ export class SubjectController {
         throw new Error("failed to update data");
       }
 
+      const classData = await Class.findOne({ _id: updatedData?.class_id })
+        .populate("department_id")
+        .lean();
+      if (!classData) {
+        throw new Error("class not found");
+      }
+      // 4️⃣ Rename populated field for cleaner structure
+      const classDataObj = classData as any;
+      classDataObj.department = classDataObj.department_id;
+      delete classData.department_id;
+
       return res.json({
         success: true,
-        data: updatedData,
+        data: { subject: updatedData, classData: classDataObj },
       });
     } catch (error) {
       next(error);
@@ -180,12 +201,12 @@ export class SubjectController {
   static async fetchClassId(req, res, next) {
     try {
       if (!req.classId) {
-        throw new Error('class not found');
+        throw new Error("class not found");
       }
       return res.json({
-        success:true,
-        data: req.classId
-      })
+        success: true,
+        data: req.classId,
+      });
     } catch (error) {
       next(error);
     }
