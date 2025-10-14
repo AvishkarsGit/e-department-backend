@@ -61,6 +61,15 @@ class AttendanceRouter {
       AttendanceController.fetchAttendanceSummary
     );
 
+    //filtered student attendance for export to excel
+    this.router.get(
+      "/filterAttendanceExcel",
+      //GlobalMiddleware.auth,
+      AttendanceValidator.fetchAttendanceSummaryExcel(),
+      GlobalMiddleware.checkError,
+      AttendanceController.fetchAttendanceSummaryExcel
+    );
+
 
     //get particular student attendance.
     this.router.get(
@@ -70,7 +79,16 @@ class AttendanceRouter {
       GlobalMiddleware.checkError,
       AttendanceController.getStudentAttendance
     );
-    
+
+    //get all dates for the particular subject attendance
+    this.router.get(
+      "/fetchAllAttendanceDate",
+    // GlobalMiddleware.auth,
+      AttendanceValidator.fetchAllAttendanceDate(),
+      GlobalMiddleware.checkError,
+      AttendanceController.fetchAllAttendanceDate
+    );
+
   }
   postRoutes() {
     this.router.post(

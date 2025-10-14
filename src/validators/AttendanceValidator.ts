@@ -55,4 +55,17 @@ export class AttendanceValidator {
       query("student_id", "Student information not provided").isString(),
     ];
   }
+
+  static fetchAttendanceSummaryExcel() {
+    return [
+      query("class_id", "Class not provided").isString(),
+      query("subject_id", "Subject not provided").isString(),
+    ];
+  }
+  static fetchAllAttendanceDate() {
+    return [
+      query("class_id", "Class not provided").isString(),
+      query("subject_id", "Subject not provided").isString(),
+    ];
+  }
 }

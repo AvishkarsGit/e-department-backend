@@ -6,6 +6,7 @@ import ClassSession from "../models/ClassSession";
 import Period from "../models/Period";
 import Student from "../models/Student";
 import Subject from "../models/Subject";
+import * as moment from "moment";
 
 export class AttendanceController {
   static async getSubjects(req, res, next) {
@@ -253,7 +254,7 @@ export class AttendanceController {
         to_date,
         page = 1, // Default to page 1
         limit = 10, // Default to 10 results per page
-        search
+        search,
       } = req.query;
 
       if (!class_id) {
@@ -261,7 +262,6 @@ export class AttendanceController {
           .status(400)
           .json({ success: false, message: "class_id is required." });
       }
-
 
       const isAllSubjects =
         subject_id?.toString().toLowerCase() === "all" || !subject_id;
@@ -382,8 +382,6 @@ export class AttendanceController {
             },
           },
         },
-
-
 
         // Stage 6: Lookup Student Details (for rollNo and user_id)
         {
@@ -570,5 +568,144 @@ export class AttendanceController {
     }
   }
 
-  
+  static async fetchAttendanceSummaryExcel(req, res, next) {
+    try {
+      const { class_id, subject_id } = req.query || req.params;
+
+      const classObjectId = new mongoose.Types.ObjectId(class_id);
+      const subjectObjectId = new mongoose.Types.ObjectId(subject_id);
+
+      const attendanceSummary = await Attendance.aggregate([
+        // Stage 1: Match class and subject
+        {
+          $match: {
+            class_id: classObjectId,
+            subject_id: subjectObjectId,
+          },
+        },
+
+        // Stage 2: Group all records by student and collect date-wise attendance
+        {
+          $group: {
+            _id: "$student_id",
+            records: {
+              $push: {
+                date: "$date",
+                status: "$status",
+              },
+            },
+            total_present: {
+              $sum: { $cond: [{ $eq: ["$status", "present"] }, 1, 0] },
+            },
+            total_absent: {
+              $sum: { $cond: [{ $eq: ["$status", "absent"] }, 1, 0] },
+            },
+            total_classes: { $sum: 1 },
+          },
+        },
+
+        // Stage 3: Lookup student details
+        {
+          $lookup: {
+            from: "students",
+            localField: "_id",
+            foreignField: "_id",
+            as: "student",
+          },
+        },
+        { $unwind: "$student" },
+
+        // Stage 4: Lookup user details (to get student name)
+        {
+          $lookup: {
+            from: "users",
+            localField: "student.user_id",
+            foreignField: "_id",
+            as: "user",
+          },
+        },
+        { $unwind: "$user" },
+
+        // Stage 5: Lookup subject name
+        {
+          $lookup: {
+            from: "subjects",
+            localField: "student.subject_id",
+            foreignField: "_id",
+            as: "subject",
+          },
+        },
+
+        // Stage 6: Final projection
+        {
+          $project: {
+            _id: 0,
+            student_id: "$_id",
+            student_name: "$user.name",
+            roll_no: "$student.rollNo",
+            total_classes: 1,
+            total_present: 1,
+            total_absent: 1,
+            records: {
+              $map: {
+                input: "$records",
+                as: "rec",
+                in: {
+                  date: "$$rec.date",
+                  status: "$$rec.status",
+                },
+              },
+            },
+          },
+        },
+
+        // Stage 7: Sort by roll number
+        { $sort: { roll_no: 1 } },
+      ]);
+
+      if (!attendanceSummary.length) {
+        return res.status(404).json({
+          success: false,
+          message: "No attendance found for this class and subject.",
+        });
+      }
+
+      return res.json({
+        success: true,
+        data: attendanceSummary,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  static async fetchAllAttendanceDate(req, res, next) {
+    try {
+      const { class_id, subject_id } = req.query || req.params;
+      const dates = await Attendance.find({ class_id, subject_id })
+        .select("date -_id")
+        .lean();
+
+      if (!dates) {
+        return res.status(404).json({
+          success: false,
+          message: "No dates found for this class and subject.",
+        });
+      }
+
+      //convert dates to dd-mm-yyyy format
+      // ✅ Format each record to DD-MM-YYYY
+      const formattedDates = dates.map((record, index) => ({
+        id: index + 1, // helps to differentiate same-day multiple lectures
+        date: moment.utc(record.date).format("DD-MM-YYYY"),
+      }));
+
+      return res.json({
+        success: true,
+        data: formattedDates,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
 }

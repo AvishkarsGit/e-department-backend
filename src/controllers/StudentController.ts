@@ -309,4 +309,66 @@ export class StudentController {
       next(error);
     }
   }
+
+  static async getStudentsForExcel(req, res, next) {
+    try {
+      const students = await Student.aggregate([
+        // 1️⃣ Join user collection
+        {
+          $lookup: {
+            from: "users", // collection name in MongoDB
+            localField: "user_id",
+            foreignField: "_id",
+            as: "user",
+          },
+        },
+        { $unwind: "$user" },
+
+        // 2️⃣ Join class collection
+        {
+          $lookup: {
+            from: "classes",
+            localField: "class_id",
+            foreignField: "_id",
+            as: "class",
+          },
+        },
+        { $unwind: "$class" },
+
+        // 3️⃣ Join department collection
+        {
+          $lookup: {
+            from: "departments",
+            localField: "class.department_id",
+            foreignField: "_id",
+            as: "department",
+          },
+        },
+        { $unwind: "$department" },
+
+        // 4️⃣ Select only required fields
+        {
+          $project: {
+            _id: 0,
+            name: "$user.name",
+            email: "$user.email",
+            phone: "$user.phone",
+            photo: "$user.photo",
+            department: "$department.name",
+            year: "$class.year",
+            semester: "$class.semester",
+            rollNo: 1,
+            guardian: 1,
+          },
+        },
+      ]);
+
+      return res.json({
+        success: true,
+        data: students,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
 }
