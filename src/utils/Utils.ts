@@ -2,7 +2,9 @@ import * as Multer from "multer";
 
 const storageOptions = Multer.diskStorage({
   destination: (req, file, cb) => {
-    cb(null, "./src/uploads/" + file.fieldname);
+    let folder = "./src/uploads/photo"; // default
+    if (file.mimetype.includes("spreadsheet")) folder = "./src/uploads/excel";
+    cb(null, folder);
   },
   filename: (req, file, cb) => {
     const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
@@ -11,15 +13,20 @@ const storageOptions = Multer.diskStorage({
 });
 
 const fileFilter = (req, file, cb) => {
-  if (file.mimetype === "image/jpeg" || file.mimetype === "image/png") {
+  const allowedMimes = [
+    "image/jpeg",
+    "image/png",
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", // Excel
+    "application/vnd.ms-excel", // older Excel format
+  ];
+  if (allowedMimes.includes(file.mimetype)) {
     cb(null, true);
   } else {
-    cb(null, false);
+    cb(new Error("Unsupported file type"), false);
   }
 };
 
 export class Utils {
-
   public multer = Multer({ storage: storageOptions, fileFilter: fileFilter });
 
   static generateVerificationToken(length: number = 6) {
@@ -62,6 +69,4 @@ export class Utils {
 
     return `${nameArr[0]}${symbol}${numStr}${endSymbol}`;
   }
-
-
 }

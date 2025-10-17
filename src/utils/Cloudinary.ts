@@ -26,10 +26,16 @@ export class Cloudinary {
     }
   }
 
-
-  static async extractPublicIdFromCloud(url: string) {
+  static async uploadExcelToCloud(file: string) {
     try {
+      const response = await cloudinary.uploader.upload(file, {
+        resource_type: "raw",
+        folder: "attendance_reports",
+      });
 
+     fs.unlinkSync(file);
+
+      return response;
     } catch (error) {
       throw error;
     }

@@ -14,6 +14,7 @@ import StudentsRouter from "./routers/StudentsRouter";
 import FacultyRouter from "./routers/FacultyRouter";
 import AttendanceRouter from "./routers/AttendanceRouter";
 import PeriodsRouter from "./routers/PeriodsRouter";
+import ReportRouter from "./routers/ReportRouter";
 
 export class Server {
   public app = express();
@@ -45,6 +46,7 @@ export class Server {
     this.app.use("/api/faculty", FacultyRouter);
     this.app.use("/api/attendance", AttendanceRouter);
     this.app.use("/api/periods", PeriodsRouter);
+    this.app.use("/api/reports", ReportRouter);
   }
 
   connectMongoDB() {

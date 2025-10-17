@@ -255,8 +255,8 @@ export class AttendanceController {
         page = 1, // Default to page 1
         limit = 10, // Default to 10 results per page
         search,
+        criteria,
       } = req.query;
-
       if (!class_id) {
         return res
           .status(400)
@@ -382,6 +382,19 @@ export class AttendanceController {
             },
           },
         },
+
+        //Stage 5.1: filter records criteria based
+        ...(criteria && parseInt(criteria) > 0
+          ? [
+              {
+                $match: {
+                  attendance_percentage: {
+                    $lte: parseInt(criteria),
+                  },
+                },
+              },
+            ]
+          : []),
 
         // Stage 6: Lookup Student Details (for rollNo and user_id)
         {
