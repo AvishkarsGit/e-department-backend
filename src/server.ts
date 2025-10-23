@@ -15,13 +15,23 @@ import FacultyRouter from "./routers/FacultyRouter";
 import AttendanceRouter from "./routers/AttendanceRouter";
 import PeriodsRouter from "./routers/PeriodsRouter";
 import ReportRouter from "./routers/ReportRouter";
+import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
+import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { McpTools } from "./mcp/McpTools";
+import ChatRouter from "./routers/ChatRouter";
 
 export class Server {
   public app = express();
-
+  public mcpServer: McpServer;
   constructor() {
+    this.mcpServer = new McpServer({
+      name: "department-mcp-server",
+      version: "1.0.0",
+    });
+
     this.setConfigs();
     this.setRoutes();
+    this.setMcpRoute();
     this.error404Handler();
     this.handleErrors();
   }
@@ -31,6 +41,9 @@ export class Server {
     this.allowCors();
     this.configBodyParser();
     this.configCloudinary();
+    this.configureMcp().catch((err) => {
+      console.log(err);
+    });
   }
 
   setRoutes() {
@@ -47,6 +60,7 @@ export class Server {
     this.app.use("/api/attendance", AttendanceRouter);
     this.app.use("/api/periods", PeriodsRouter);
     this.app.use("/api/reports", ReportRouter);
+    this.app.use("/api/chat", ChatRouter);
   }
 
   connectMongoDB() {
@@ -99,5 +113,31 @@ export class Server {
       api_key: getEnvironmentVariables().cloud_api_key,
       api_secret: getEnvironmentVariables().cloud_api_secret,
     });
+  }
+
+  setMcpRoute() {
+    this.app.post("/mcp", async (req, res, next) => {
+      try {
+        const transport = new StreamableHTTPServerTransport({
+          sessionIdGenerator: undefined,
+          enableJsonResponse: true,
+        });
+
+        res.on("close", () => {
+          transport.close();
+        });
+
+        await this.mcpServer.connect(transport);
+        await transport.handleRequest(req, res, req.body);
+      } catch (error) {
+        next(error);
+      }
+    });
+  }
+
+  async configureMcp() {
+    const mcpTools = new McpTools(this.mcpServer);
+    mcpTools.registerTools();
+    // we can pre connect mcp, but this is better way than pre connect;
   }
 }

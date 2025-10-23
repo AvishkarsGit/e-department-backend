@@ -4,7 +4,6 @@ import { JWT } from "../utils/JWT";
 import { NodeMailer } from "../utils/NodeMailer";
 import { Utils } from "../utils/Utils";
 import { Cloudinary } from "../utils/Cloudinary";
-import { read } from "fs";
 
 export class UserController {
   static async signup(req, res, next) {
@@ -47,7 +46,7 @@ export class UserController {
       const user = await new User(data).save();
 
       //generate access token and refresh token
-      const payload = { id: user._id };
+      const payload = { id: user._id, role: user.role };
 
       const accessToken = JWT.generateAccessToken(payload);
       const refreshToken = JWT.generateRefreshToken(payload);
@@ -176,9 +175,11 @@ export class UserController {
         encrypt_password: encrypt_password,
       });
 
+      const payload = { id: user._id, role: user.role };
+
       //generate access token
-      const accessToken = JWT.generateAccessToken({ id: user._id });
-      const refreshToken = JWT.generateRefreshToken({ id: user._id });
+      const accessToken = JWT.generateAccessToken(payload);
+      const refreshToken = JWT.generateRefreshToken(payload);
 
       return res.json({
         success: true,
@@ -194,9 +195,7 @@ export class UserController {
 
   static async profile(req, res, next) {
     try {
-      const user = await User.findOne({ _id: req.user.id }).select(
-        "-password -verification_token -verification_token_time -reset_password_verification_token -reset_password_verification_token_time -created_at -updated_at -__v"
-      );
+      const user = await User.findOne({ _id: req.user.id }).select("name email photo phone role");
       if (!user) {
         throw new Error("user not found");
       }
@@ -213,6 +212,7 @@ export class UserController {
   static async sendResendPasswordToken(req, res, next) {
     try {
       const email = req.user.email;
+      console.log('email',email);
       const otp = Utils.generateVerificationToken();
       const updated = await User.findOneAndUpdate(
         { email },
@@ -332,10 +332,12 @@ export class UserController {
     let per_page = parseInt(req.query.size) || 5;
     let current_page = parseInt(req.query.page) || 1;
 
+
     try {
       // Filter handling
       const filter = req.query.filter || "";
-      let query = {};
+      const isCard = req.query.isCard;
+      let query:any = {};
       if (filter) {
         const regex = new RegExp(filter, "i");
         query = {
@@ -347,6 +349,11 @@ export class UserController {
             { role: regex },
           ],
         };
+      }
+
+      //if isCard is true ,then show only the faculty
+      if (isCard) {
+        query.role = 'faculty';
       }
 
       // Total documents after filter
