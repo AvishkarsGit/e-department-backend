@@ -11,9 +11,6 @@ export class Cloudinary {
         //successfully upload file to cloudinary, unlink/delete the local files
         fs.unlinkSync(filePath);
       }
-
-      console.log(uploadResult);
-
       return uploadResult;
     } catch (error) {
       throw error;
@@ -29,10 +26,16 @@ export class Cloudinary {
     }
   }
 
-
-  static async extractPublicIdFromCloud(url: string) {
+  static async uploadExcelToCloud(file: string) {
     try {
-      
+      const response = await cloudinary.uploader.upload(file, {
+        resource_type: "raw",
+        folder: "attendance_reports",
+      });
+
+     fs.unlinkSync(file);
+
+      return response;
     } catch (error) {
       throw error;
     }

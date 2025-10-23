@@ -1,3 +1,5 @@
+import Class from "../models/Class";
+import Department from "../models/Department";
 import Student from "../models/Student";
 import User from "../models/User";
 import { Cloudinary } from "../utils/Cloudinary";
@@ -57,16 +59,25 @@ export class StudentController {
 
       if (!student) throw new Error("Failed to save student's data");
 
+      const classData = await Class.findOne({ _id: class_id })
+        .populate("department_id")
+        .lean();
+      if (!classData) {
+        throw new Error("class not found");
+      }
+      // 4️⃣ Rename populated field for cleaner structure
+      const classDataObj = classData as any;
+      classDataObj.department = classDataObj.department_id;
+      delete classData.department_id;
+
       return res.json({
         success: true,
-        data: { user, student },
+        data: { user, student, classData: classDataObj },
       });
     } catch (error) {
       next(error);
     }
   }
-
-  
 
   static async getStudents(req, res, next) {
     try {
@@ -119,10 +130,10 @@ export class StudentController {
             from: "departments",
             localField: "classData.department_id",
             foreignField: "_id",
-            as: "department",
+            as: "classData.department",
           },
         },
-        { $unwind: "$department" },
+        { $unwind: "$classData.department" },
 
         // Facet for pagination
         {
@@ -238,9 +249,24 @@ export class StudentController {
       );
       if (!updatedStudent) throw new Error("Student not found");
 
+      const classData = await Class.findOne({ _id: class_id })
+        .populate("department_id")
+        .lean();
+      if (!classData) {
+        throw new Error("class not found");
+      }
+      // 4️⃣ Rename populated field for cleaner structure
+      const classDataObj = classData as any;
+      classDataObj.department = classDataObj.department_id;
+      delete classData.department_id;
+
       return res.json({
         success: true,
-        data: { updatedUser, updatedStudent },
+        data: {
+          user: updatedUser,
+          student: updatedStudent,
+          classData: classDataObj,
+        },
       });
     } catch (error) {
       next(error);
@@ -278,6 +304,68 @@ export class StudentController {
 
       return res.json({
         success: true,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  static async getStudentsForExcel(req, res, next) {
+    try {
+      const students = await Student.aggregate([
+        // 1️⃣ Join user collection
+        {
+          $lookup: {
+            from: "users", // collection name in MongoDB
+            localField: "user_id",
+            foreignField: "_id",
+            as: "user",
+          },
+        },
+        { $unwind: "$user" },
+
+        // 2️⃣ Join class collection
+        {
+          $lookup: {
+            from: "classes",
+            localField: "class_id",
+            foreignField: "_id",
+            as: "class",
+          },
+        },
+        { $unwind: "$class" },
+
+        // 3️⃣ Join department collection
+        {
+          $lookup: {
+            from: "departments",
+            localField: "class.department_id",
+            foreignField: "_id",
+            as: "department",
+          },
+        },
+        { $unwind: "$department" },
+
+        // 4️⃣ Select only required fields
+        {
+          $project: {
+            _id: 0,
+            name: "$user.name",
+            email: "$user.email",
+            phone: "$user.phone",
+            photo: "$user.photo",
+            department: "$department.name",
+            year: "$class.year",
+            semester: "$class.semester",
+            rollNo: 1,
+            guardian: 1,
+          },
+        },
+      ]);
+
+      return res.json({
+        success: true,
+        data: students,
       });
     } catch (error) {
       next(error);

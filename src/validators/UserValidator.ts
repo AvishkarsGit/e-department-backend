@@ -77,9 +77,10 @@ export class UserValidator {
 
   static sendResetPasswordToken() {
     return [
-      query("email", "Email is required")
+      body("email", "Email is required")
         .isEmail()
         .custom((email, { req }) => {
+          console.log("email", email);
           return User.findOne({ email }).then((user) => {
             if (user) {
               req.user = user;

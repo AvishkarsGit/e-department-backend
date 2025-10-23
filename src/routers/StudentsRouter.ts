@@ -19,8 +19,15 @@ class StudentsRouter {
     //get all students data
     this.router.get(
       "/students",
-      // GlobalMiddleware.auth,
+      GlobalMiddleware.auth,
       StudentController.getStudents
+    );
+
+    //get all students data for excel export
+    this.router.get(
+      "/students/export",
+      GlobalMiddleware.auth,
+      StudentController.getStudentsForExcel
     );
   }
 

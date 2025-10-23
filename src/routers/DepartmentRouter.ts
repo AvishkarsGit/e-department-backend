@@ -1,7 +1,7 @@
 import { Router } from "express";
+import { GlobalMiddleware } from "../middlewares/GlobalMiddleware";
 import { DepartmentController } from "../controllers/DepartmentController";
 import { DepartmentValidator } from "../validators/DepartmentValidator";
-import { GlobalMiddleware } from "../middlewares/GlobalMiddleware";
 
 class DepartmentRouter {
   public router: Router;
@@ -54,4 +54,5 @@ class DepartmentRouter {
 }
 
 export default new DepartmentRouter().router;
+
 
