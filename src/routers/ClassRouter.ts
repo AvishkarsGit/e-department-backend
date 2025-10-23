@@ -18,7 +18,7 @@ class ClassRouter {
   getRoutes() {
     this.router.get(
       "/classes",
-      //  GlobalMiddleware.auth,
+       GlobalMiddleware.auth,
       ClassController.getClasses
     );
   }
@@ -27,7 +27,7 @@ class ClassRouter {
     //create class
     this.router.post(
       "/add",
-      // GlobalMiddleware.auth,
+      GlobalMiddleware.auth,
       ClassValidator.addClass(),
       GlobalMiddleware.checkError,
       ClassController.addClass
@@ -40,6 +40,7 @@ class ClassRouter {
     //update
     this.router.patch(
       "/update/:id",
+      GlobalMiddleware.auth,
       ClassValidator.updateClass(),
       GlobalMiddleware.checkError,
       ClassController.updateClass
@@ -48,7 +49,11 @@ class ClassRouter {
 
   deleteRoutes() {
     //delete
-    this.router.delete("/delete/:id", ClassController.deleteClass);
+    this.router.delete(
+      "/delete/:id",
+      GlobalMiddleware.auth,
+      ClassController.deleteClass
+    );
   }
 }
 

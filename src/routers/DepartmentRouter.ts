@@ -54,3 +54,4 @@ class DepartmentRouter {
 }
 
 export default new DepartmentRouter().router;
+
