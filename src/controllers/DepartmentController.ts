@@ -67,7 +67,7 @@ export class DepartmentController {
   //Update Department
   static async updateDepartment(req, res, next) {
     try {
-      const  id  = req.query.id || req.params.id;
+      const id = req.query.id || req.params.id;
       const { name } = req.body;
       const updatedData = await Department.findByIdAndUpdate(
         id,
@@ -98,6 +98,20 @@ export class DepartmentController {
       res.json({ success: true, message: "Department Deleted Successfully" });
     } catch (error) {
       next(error);
+    }
+  }
+
+  static async getAllDepartments(req, res, next) {
+    try {
+      const departments = await Department.find({});
+      if (!departments) throw new Error('No departments found');
+
+      return res.json({
+        success:true,
+        data:departments
+      })
+    } catch (err) {
+      next(err);
     }
   }
 }

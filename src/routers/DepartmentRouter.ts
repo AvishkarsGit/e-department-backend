@@ -19,6 +19,13 @@ class DepartmentRouter {
       GlobalMiddleware.auth,
       DepartmentController.getDepartments
     );
+
+    //get all departments
+    this.router.get(
+      "/get-all-departments",
+      GlobalMiddleware.auth,
+      DepartmentController.getAllDepartments
+    );
   }
 
   postRoutes() {
