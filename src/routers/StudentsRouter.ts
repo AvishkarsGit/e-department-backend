@@ -33,8 +33,7 @@ class StudentsRouter {
 
   postRoutes() {
     this.router.post(
-      "/add",
-      GlobalMiddleware.auth,
+      "/add", // using for registered the student
       new Utils().multer.single("photo"),
       StudentValidator.addStudent(),
       GlobalMiddleware.checkError,

@@ -107,6 +107,20 @@ export class SubjectController {
       next(error);
     }
   }
+  static async getAllSubjectsWithoutPagination(req, res, next) {
+    try {
+      const subjects = await Subject.find({});
+      if (!subjects) {
+        throw new Error("subjects not found");
+      }
+      return res.json({
+        success: true,
+        data: subjects,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
 
   static async getSubject(req, res, next) {
     try {

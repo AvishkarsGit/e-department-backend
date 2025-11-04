@@ -23,7 +23,7 @@ class DepartmentRouter {
     //get all departments
     this.router.get(
       "/get-all-departments",
-      GlobalMiddleware.auth,
+     // GlobalMiddleware.auth,
       DepartmentController.getAllDepartments
     );
   }

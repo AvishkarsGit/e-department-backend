@@ -20,7 +20,10 @@ class UserRouter {
     //get profile
     this.router.get("/profile", GlobalMiddleware.auth, UserController.profile);
 
-    
+    //get combine profile
+    //add admin middleware later
+    this.router.get('/view-profile/:user_id',GlobalMiddleware.auth, UserController.viewProfile);
+
 
     //get users with pagination
     this.router.get("/users", GlobalMiddleware.auth, UserController.getUsers);
@@ -31,6 +34,9 @@ class UserRouter {
       GlobalMiddleware.auth,
       UserController.getAllUsers
     );
+
+    //check if user is exist or not
+    this.router.get('/exists',UserController.checkUserExists);
 
     //check if admin is exists or not
     this.router.get("/checkAdminExists", UserController.checkAdminExists);
@@ -96,10 +102,9 @@ class UserRouter {
     );
 
 
-    //send verification token email again
+    //send verification token email
     this.router.patch(
       "/send/verification/token",
-      GlobalMiddleware.auth,
       UserController.sendVerificationToken
     );
 
@@ -107,7 +112,6 @@ class UserRouter {
 
     this.router.patch(
       "/verify-email",
-      GlobalMiddleware.auth,
       UserValidator.verifyEmail(),
       GlobalMiddleware.checkError,
       UserController.verifyEmail

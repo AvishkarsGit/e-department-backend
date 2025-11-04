@@ -24,15 +24,22 @@ class SubjectRouter {
       SubjectController.getAllSubjects
     );
 
+    //get all subjects without pagination
+    this.router.get(
+      '/allSubjects',
+      GlobalMiddleware.auth,
+      SubjectController.getAllSubjectsWithoutPagination
+    )
+
     //get particular subject details
     this.router.get(
       "/get-subject",
-      // GlobalMiddleware.auth,
+      GlobalMiddleware.auth,
       SubjectController.getSubject
     );
     this.router.get(
       "/fetchClassId",
-      //GlobalMiddleware.auth,
+      GlobalMiddleware.auth,
       SubjectValidator.fetchClassId(),
       GlobalMiddleware.checkError,
       SubjectController.fetchClassId

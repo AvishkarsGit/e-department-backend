@@ -4,13 +4,13 @@ import { model } from "mongoose";
 const userSchema = new mongoose.Schema({
   name: { type: String, required: true },
   email: { type: String, required: true },
-  username: { type: String, required: true, unique: true },
+  username: { type: String, required: true },
   password: { type: String, required: true },
   phone: { type: String, required: true },
   photo: { type: String, required: true, default: null },
   role: {
     type: String,
-    enum: ["admin", "hod", "faculty", "student"],
+    enum: ["admin", "faculty", "student"],
     required: true,
   },
   email_verified: { type: String, required: true, default: false },

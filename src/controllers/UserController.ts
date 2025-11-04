@@ -1,20 +1,21 @@
-import { EmitFlags } from "typescript";
 import User from "../models/User";
 import { JWT } from "../utils/JWT";
 import { NodeMailer } from "../utils/NodeMailer";
 import { Utils } from "../utils/Utils";
 import { Cloudinary } from "../utils/Cloudinary";
+import Faculty from "../models/Faculty";
+import Student from "../models/Student";
+import mongoose from "mongoose";
 
 export class UserController {
   static async signup(req, res, next) {
     try {
       //get data from the body
-      const { name, email, username, password, phone, role, account_status } =
+      const { name, email, username, password, phone, role, department } =
         req.body;
 
       let photo;
       let public_id;
-      console.log("file", req.file);
       if (req?.file) {
         const result = await Cloudinary.uploadToCloud(req.file.path);
         photo = result?.secure_url;
@@ -36,7 +37,7 @@ export class UserController {
         phone,
         photo,
         role,
-        account_status,
+        account_status: true,
         cloud_public_id: public_id,
         verification_token,
         verification_token_time: Date.now() + Utils.MAX_TOKEN_TIME,
@@ -45,20 +46,20 @@ export class UserController {
       //save into the db
       const user = await new User(data).save();
 
+      //check role
+      if (user?.role === "admin" || user?.role === "faculty") {
+        //set admin as faculty as well. Because in our case, admin(HOD) can be faculty as well
+        await new Faculty({
+          user_id: user._id,
+          department_id: department,
+        }).save();
+      }
+
       //generate access token and refresh token
       const payload = { id: user._id, role: user.role };
 
       const accessToken = JWT.generateAccessToken(payload);
       const refreshToken = JWT.generateRefreshToken(payload);
-
-      // send verification token on email
-      const email_data = {
-        to: [email],
-        subject: "Account creation email",
-        html: `<h4>Verification token : ${verification_token}</h4>`,
-      };
-
-      await NodeMailer.sendEmail(email_data);
 
       return res.json({
         success: true,
@@ -75,8 +76,8 @@ export class UserController {
 
   static async sendVerificationToken(req, res, next) {
     try {
-      const id = req.user.id;
-      const user = await User.findOne({ _id: id });
+      const { email } = req.body;
+      const user = await User.findOne({ email });
 
       //check if id is valid
       if (!user) {
@@ -125,9 +126,9 @@ export class UserController {
 
   static async verifyEmail(req, res, next) {
     try {
-      const otp = req.body.otp;
-      const id = req.user.id;
-      const user = await User.findOne({ _id: id });
+      const { email, otp } = req.body;
+
+      const user = await User.findOne({ email });
 
       if (!user) {
         throw new Error("User doesn't exist");
@@ -148,6 +149,8 @@ export class UserController {
         {
           new: true,
         }
+      ).select(
+        "name email phone photo role username email_verified account_status created_at updated_at"
       );
 
       //check if email is verified
@@ -195,11 +198,127 @@ export class UserController {
 
   static async profile(req, res, next) {
     try {
-      const user = await User.findOne({ _id: req.user.id }).select("name email photo phone role");
+      const userId = req.user.id;
+
+      // Use aggregation on the User collection
+      const pipeline = [
+        {
+          $match: { _id: new mongoose.Types.ObjectId(userId) },
+        },
+        {
+          $lookup: {
+            from: "faculties", // collection name in MongoDB (check exact name)
+            localField: "_id",
+            foreignField: "user_id",
+            as: "facultyData",
+            pipeline: [
+              {
+                $lookup: {
+                  from: "subjects", // collection name in MongoDB
+                  localField: "subjects",
+                  foreignField: "_id",
+                  as: "subjects",
+                  pipeline: [
+                    {
+                      $project: {
+                        _id: 1,
+                        name: 1,
+                        code: 1,
+                      },
+                    },
+                  ],
+                },
+              },
+              {
+                $project: {
+                  _id: 0,
+                  subjects: 1,
+                },
+              },
+            ],
+          },
+        },
+        {
+          $project: {
+            _id: 1,
+            name: 1,
+            email: 1,
+            phone: 1,
+            photo: 1,
+            username: 1,
+            role: 1,
+            created_at: 1,
+            email_verified: 1,
+            subjects: {
+              $cond: {
+                if: {
+                  $or: [
+                    { $eq: ["$role", "faculty"] },
+                    { $eq: ["$role", "admin"] },
+                  ],
+                },
+                then: { $arrayElemAt: ["$facultyData.subjects", 0] },
+                else: [],
+              },
+            },
+          },
+        },
+      ];
+
+      const result = await User.aggregate(pipeline);
+
+      if (!result.length) {
+        throw new Error("User not found");
+      }
+
+      return res.json({
+        success: true,
+        data: result[0],
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  static async viewProfile(req, res, next) {
+    try {
+      const user_id = req.query.user_id || req.params.user_id;
+      if (!user_id) {
+        throw new Error("user_id is not available");
+      }
+      const user = await User.findOne({
+        _id: user_id,
+      }).select(
+        "name email photo phone role created_at email_verified username"
+      );
       if (!user) {
         throw new Error("user not found");
       }
 
+      if (user?.role === "faculty") {
+        const faculty = await Faculty.findOne({ user_id: user?._id }).populate(
+          "department_id"
+        );
+        if (!faculty) {
+          throw new Error("faculty not found");
+        }
+        return res.json({
+          success: true,
+          data: { user, faculty },
+        });
+      }
+      if (user?.role === "student") {
+        const student = await Student.findOne({ user_id: user?._id }).populate(
+          "class_id"
+        );
+        if (!student) {
+          throw new Error("faculty not found");
+        }
+        return res.json({
+          success: true,
+          data: { user, student },
+        });
+      }
       return res.json({
         success: true,
         data: user,
@@ -212,7 +331,7 @@ export class UserController {
   static async sendResendPasswordToken(req, res, next) {
     try {
       const email = req.user.email;
-      console.log('email',email);
+      console.log("email", email);
       const otp = Utils.generateVerificationToken();
       const updated = await User.findOneAndUpdate(
         { email },
@@ -332,12 +451,11 @@ export class UserController {
     let per_page = parseInt(req.query.size) || 5;
     let current_page = parseInt(req.query.page) || 1;
 
-
     try {
       // Filter handling
       const filter = req.query.filter || "";
       const isCard = req.query.isCard;
-      let query:any = {};
+      let query: any = {};
       if (filter) {
         const regex = new RegExp(filter, "i");
         query = {
@@ -353,7 +471,7 @@ export class UserController {
 
       //if isCard is true ,then show only the faculty
       if (isCard) {
-        query.role = 'faculty';
+        query.role = "faculty";
       }
 
       // Total documents after filter
@@ -588,6 +706,73 @@ export class UserController {
       return res.json({
         success: true,
         data: updatedData,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  static async checkUserExists(req, res, next) {
+    try {
+      const { email } = req.query || req.params;
+      const user = await User.findOne({ email }).select(
+        "name email email_verified"
+      );
+
+      //return false if user is not exist in the system
+      if (!user) {
+        throw new Error("User not found");
+      }
+
+      return res.json({
+        success: true,
+        data: {
+          exists: true,
+          user: user,
+        },
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  static async sendVerificationEmail(req, res, next) {
+    try {
+      const { email } = req.body;
+      const user = await User.findOne({ email });
+      if (!user) {
+        throw new Error("User not found");
+      }
+      //generate otp
+      const otp = Utils.generateVerificationToken(6);
+
+      const updated = await User.findOneAndUpdate(
+        { email },
+        {
+          $set: {
+            updated_at: Date.now(),
+            verification_token: otp,
+            verification_token_time: Date.now() + Utils.MAX_TOKEN_TIME,
+          },
+        },
+        {
+          new: true,
+        }
+      );
+
+      if (!updated) {
+        throw new Error("Failed to update");
+      }
+
+      //send email
+      await NodeMailer.sendEmail({
+        to: [email],
+        subject: "Email Verification",
+        html: `<h4>Verification OTP :${otp}</h4>`,
+      });
+
+      return res.json({
+        success: true,
       });
     } catch (error) {
       next(error);

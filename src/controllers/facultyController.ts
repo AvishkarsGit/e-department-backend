@@ -69,7 +69,7 @@ export class FacultyController {
         // Join User
         {
           $lookup: {
-            from: "users", // must match collection name in DB
+            from: "users",
             localField: "user_id",
             foreignField: "_id",
             as: "user",
@@ -88,7 +88,7 @@ export class FacultyController {
         },
         { $unwind: "$department" },
 
-        // Apply filter across user
+        // Apply filter (if any)
         ...(regex
           ? [
               {
@@ -103,6 +103,16 @@ export class FacultyController {
             ]
           : []),
 
+        // Populate subjects (only if available)
+        {
+          $lookup: {
+            from: "subjects",
+            localField: "subjects",
+            foreignField: "_id",
+            as: "subjects",
+          },
+        },
+
         // Pagination facet
         {
           $facet: {
@@ -113,8 +123,9 @@ export class FacultyController {
       ];
 
       const result = await Faculty.aggregate(pipeline);
-      const total = result[0].metadata[0]?.total || 0;
-      const faculties = result[0].data;
+
+      const total = result[0]?.metadata[0]?.total || 0;
+      const faculties = result[0]?.data || [];
 
       return res.json({
         success: true,
@@ -257,6 +268,56 @@ export class FacultyController {
       });
     } catch (error) {
       throw error;
+    }
+  }
+
+  //get all faculties
+  static async getAllFaculties(req, res, next) {
+    try {
+      const faculties = await Faculty.find()
+        .populate({
+          path: "user_id",
+          select: "name role",
+        })
+        .select("user_id")
+        .lean();
+      if (!faculties) throw new Error("No faculties found");
+
+      return res.json({
+        success: true,
+        data: faculties,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  //assign subjects to faculty
+  static async assignSubjects(req, res, next) {
+    try {
+      const { faculty, subjects } = req.body;
+      const subjectsArray = JSON.parse(subjects);
+      let subjectsData = subjectsArray.map((subject: any) => subject.subject);
+
+      //update the faculty
+      const updated = await Faculty.findOneAndUpdate(
+        { _id: faculty },
+        {
+          $set: {
+            subjects: subjectsData,
+          },
+        },
+        { new: true }
+      ).populate("subjects");
+
+      if (!updated) throw new Error("Failed to update faculty");
+
+      return res.json({
+        success: true,
+       data: updated,
+      });
+    } catch (error) {
+      next(error);
     }
   }
 }

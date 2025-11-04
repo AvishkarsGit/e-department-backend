@@ -1,10 +1,7 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { McpController } from "../mcp/McpController";
-import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { McpClientInstance } from "./McpClassInstance";
-import Student from "../models/Student";
-import Attendance from "../models/Attendance";
 export class McpTools {
   public mcpServer: McpServer;
   public mcp_tools: any[] = [];
