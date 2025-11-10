@@ -70,3 +70,33 @@ export class Utils {
     return `${nameArr[0]}${symbol}${numStr}${endSymbol}`;
   }
 }
+
+const storageOptionsStudyMaterial = Multer.diskStorage({
+  destination: (req, file, cb) => {
+    const folder = "./src/uploads/studymaterial"; // store PDFs here
+    cb(null, folder);
+  },
+  filename: (req, file, cb) => {
+    const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
+    cb(null, uniqueSuffix + "-" + file.originalname);
+  },
+});
+
+// File Filter (Only PDF)
+const fileFilterStudyMaterial = (req, file, cb) => {
+  const allowedMimes = ["application/pdf"]; // only allow PDF
+  if (allowedMimes.includes(file.mimetype)) {
+    cb(null, true);
+  } else {
+    cb(new Error("Only PDF files are allowed"), false);
+  }
+};
+
+// Export Class
+export class UtilsofStudy {
+  public multer = Multer({
+    storage: storageOptionsStudyMaterial,
+    fileFilter: fileFilterStudyMaterial,
+    limits: { fileSize: 10 * 1024 * 1024 }, // optional: max 10MB per file
+  });
+}

@@ -1,5 +1,7 @@
 import { validationResult } from "express-validator";
 import { JWT } from "../utils/JWT";
+import { resourceUsage } from "process";
+import User from "../models/User";
 
 export class GlobalMiddleware {
   static checkError(req, res, next) {
@@ -25,6 +27,35 @@ export class GlobalMiddleware {
     } catch (error) {
       req.errorStatus = 401;
       next(error);
+    }
+  }
+
+  static checkRole(...allowedRoles) {
+    return async (req, res, next) => {
+      try {
+        const userId = req.user?.id || req.user?._id;
+        if (!userId) {
+          req.errorStatus = 401;
+          return next(new Error("User ID not found in token"));
+        }
+
+        const user = await User.findById(userId);
+        if (!user) {
+          req.errorStatus = 404;
+          return next(new Error("User not found"));
+        }
+
+        if (!allowedRoles.includes(user.role)) {
+          req.errorStatus = 403;
+          return next(new Error("Access denied"));
+        }
+
+        next();
+
+      } catch (error) {
+        req.errorStatus = 401;
+        next(error);
+      }
     }
   }
 }

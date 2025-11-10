@@ -8,6 +8,7 @@ import * as cors from "cors";
 import { getEnvironmentVariables } from "./environments/environment";
 import DepartmentRouter from "./routers/DepartmentRouter";
 import ClassRouter from "./routers/ClassRouter";
+import DocumentationRouter from "./routers/StudyMaterialRouter";
 import SubjectRouter from "./routers/SubjectRouter";
 import { v2 as cloudinary } from "cloudinary";
 import StudentsRouter from "./routers/StudentsRouter";
@@ -61,6 +62,7 @@ export class Server {
     this.app.use("/api/periods", PeriodsRouter);
     this.app.use("/api/reports", ReportRouter);
     this.app.use("/api/chat", ChatRouter);
+    this.app.use("/api/studymaterial",DocumentationRouter);
   }
 
   connectMongoDB() {

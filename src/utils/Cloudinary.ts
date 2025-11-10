@@ -40,4 +40,18 @@ export class Cloudinary {
       throw error;
     }
   }
+
+  static async uploadStudyMaterial(filePath:any){
+    try{
+    const StudyMaterial = await cloudinary.uploader.upload(filePath,{
+      resource_type:"auto",
+      folder:"StudyMaterial"
+    })
+
+    fs.unlinkSync(filePath);
+    return StudyMaterial;
+    }catch (error) {
+      throw error;
+    }
+  }
 }
