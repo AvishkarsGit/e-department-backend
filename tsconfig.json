@@ -10,7 +10,10 @@
         "es2015",
         "es2017",
         "dom"
-      ]
+      ],
+         // ✅ Add these two lines
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true
     },
     "files": [
       "./node_modules/@types/node/index.d.ts"
@@ -23,4 +26,3 @@
       "node_modules"
     ]
   }
-  

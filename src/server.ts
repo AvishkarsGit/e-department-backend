@@ -1,10 +1,10 @@
-import * as express from "express";
-import * as dotenv from "dotenv";
+import express from "express";
+import dotenv from "dotenv";
 dotenv.config(); //config dotenv
 import UserRouter from "./routers/UserRouter";
-import * as bodyParser from "body-parser";
+import bodyParser from "body-parser";
 import mongoose from "mongoose";
-import * as cors from "cors";
+import cors from "cors";
 import { getEnvironmentVariables } from "./environments/environment";
 import DepartmentRouter from "./routers/DepartmentRouter";
 import ClassRouter from "./routers/ClassRouter";
@@ -62,7 +62,7 @@ export class Server {
     this.app.use("/api/periods", PeriodsRouter);
     this.app.use("/api/reports", ReportRouter);
     this.app.use("/api/chat", ChatRouter);
-    this.app.use("/api/studymaterial",DocumentationRouter);
+    this.app.use("/api/studymaterial", DocumentationRouter);
   }
 
   connectMongoDB() {

@@ -1,4 +1,4 @@
-import * as Multer from "multer";
+import Multer from "multer";
 
 const storageOptions = Multer.diskStorage({
   destination: (req, file, cb) => {
@@ -93,7 +93,7 @@ const fileFilterStudyMaterial = (req, file, cb) => {
 };
 
 // Export Class
-export class UtilsofStudy {
+export class UtilsOfStudy {
   public multer = Multer({
     storage: storageOptionsStudyMaterial,
     fileFilter: fileFilterStudyMaterial,

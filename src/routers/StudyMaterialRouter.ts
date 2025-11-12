@@ -1,52 +1,58 @@
 import { Router } from "express";
 import { StudyMaterialController } from "../controllers/StudyMaterialController";
-import { UtilsofStudy } from "../utils/Utils";
-import { StudyMaterialValidator } from "../validators/StudymaterialValidator";
+import { UtilsOfStudy } from "../utils/Utils";
+import { GlobalMiddleware } from "../middlewares/GlobalMiddleware";
+import { StudyMaterialValidator } from "../validators/StudyMaterialValidator";
 
-const studyUpload = new UtilsofStudy();
+const studyUpload = new UtilsOfStudy();
 
-class DocumentationRouter{
- public router : Router;
- constructor(){
-    this.router=Router();
-    this.getRouters();
-    this.deleteRouters();
-    this.patchRouters();
-    this.postRouters();
-    
- }
-//getroutes
- getRouters(){
-  this.router.get('/get-studymaterial',
-   StudyMaterialController.getStudyMaterial
-  )
- }
+class StudyMaterialRouter {
+  public router: Router;
 
- //create routes
- postRouters(){
-   this.router.post('/create-studymaterial',
-   studyUpload.multer.single("attachment"),
-   StudyMaterialValidator.addStudyMaterial(),
-   StudyMaterialController.createStudyMaterial
-  )
- }
+  constructor() {
+    this.router = Router();
+    this.initializeRoutes();
+  }
 
- // edit routes
- patchRouters(){
-  this.router.patch('/update-studymaterial/:id',
-   studyUpload.multer.single("attachment"),
-   StudyMaterialValidator.updateStudyMaterial(),
-   StudyMaterialController.updateStudyMaterial
-  )
- }
+  private initializeRoutes() {
+    // GET routes
+    this.router.get(
+      '/materials',
+      StudyMaterialValidator.getStudyMaterial(),
+      GlobalMiddleware.checkError,
+      StudyMaterialController.getStudyMaterial
+    );
 
- // delete routes
- deleteRouters(){
-  this.router.delete('/delete-studymaterial/:id',
-   StudyMaterialController.deleteStudyMaterial
-  )
- }
+    this.router.get(
+      '/materials/type/:attachment_type',
+      StudyMaterialController.getByType
+    );
+
+    // POST routes
+    this.router.post(
+      '/materials',
+      studyUpload.multer.single("attachment"),
+      StudyMaterialValidator.addStudyMaterial(),
+      GlobalMiddleware.checkError,
+      StudyMaterialController.createStudyMaterial
+    );
+
+    // PATCH routes
+    this.router.patch(
+      '/materials/:id',
+      studyUpload.multer.single("attachment"),
+      StudyMaterialValidator.updateStudyMaterial(),
+      GlobalMiddleware.checkError,
+      StudyMaterialController.updateStudyMaterial
+    );
+
+    // DELETE routes
+    this.router.delete(
+      '/materials/:id',
+      StudyMaterialController.deleteStudyMaterial
+    );
+  }
 }
 
-export default new DocumentationRouter().router;
+export default new StudyMaterialRouter().router;
 

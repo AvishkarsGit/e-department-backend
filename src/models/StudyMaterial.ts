@@ -1,41 +1,51 @@
 import mongoose from "mongoose";
 import { model } from "mongoose";
-import Faculty from "./Faculty";
 
-const StudymaterialSchema = new mongoose.Schema({
+const StudyMaterialSchema = new mongoose.Schema({
     title: {
         type: String,
-        require: true
+        required: true,
+        trim: true,
+        maxlength: 200
     },
     attachment: {
         type: String,
-        require: true
+        required: true
+    },
+    attachment_type: {
+        type: String,
+        required: true,
+        enum: ['lab_manual', 'assignment', 'notice', 'timetable', 'notes', 'syllabus', 'other'],
+        lowercase: true
     },
     subject_id: {
         type: mongoose.Schema.Types.ObjectId,
-        ref: "Subject"
+        ref: "Subject",
+        required: true,
+        index: true
     },
     class_id: {
         type: mongoose.Schema.Types.ObjectId,
-        ref: "Class"
+        ref: "Class",
+        required: true,
+        index: true
     },
     cloud_public_id: {
         type: String,
-        required: false,
+        required: false
     },
     faculty_id: {
         type: mongoose.Schema.Types.ObjectId,
-        ref: "Faculty"
-    },
-    created_at: {
-        type: Date,
-        default: Date.now()
-    },
-    updated_at: {
-        type: Date,
-        default: Date.now()
+        ref: "Faculty",
+        required: true
     }
+}, {
+    timestamps: true
+});
 
-})
+// Compound indexes for efficient queries
+StudyMaterialSchema.index({ class_id: 1, subject_id: 1, attachment_type: 1 });
+StudyMaterialSchema.index({ faculty_id: 1, createdAt: -1 });
+StudyMaterialSchema.index({ title: 'text' });
 
-export default model("Studymaterial", StudymaterialSchema);
+export default model("StudyMaterial", StudyMaterialSchema);
