@@ -96,7 +96,25 @@ export class UserValidator {
   static resetPassword() {
     return [
       body("otp", "Please enter otp").isString(),
-      body("new_password", "Please enter new password"),
+      body("password", "Please enter new password"),
+    ];
+  }
+  static verifyResetPasswordOtp() {
+    return [
+      body("email", "Email is required")
+        .isEmail()
+        .custom((email, { req }) => {
+          console.log("email", email);
+          return User.findOne({ email }).then((user) => {
+            if (user) {
+              req.user = user;
+              return true;
+            } else {
+              return false;
+            }
+          });
+        }),
+      body("otp", "Please enter otp").isString(),
     ];
   }
 

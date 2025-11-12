@@ -1,3 +1,4 @@
+import mongoose from "mongoose";
 import Class from "../models/Class";
 import Department from "../models/Department";
 import Student from "../models/Student";
@@ -79,90 +80,103 @@ export class StudentController {
     }
   }
 
-  static async getStudents(req, res, next) {
-    try {
-      const per_page = parseInt(req.query.size) || 5;
-      const current_page = parseInt(req.query.page) || 1;
-      const skip = (current_page - 1) * per_page;
+ static async getStudents(req, res, next) {
+  try {
+    const per_page = parseInt(req.query.size) || 5;
+    const current_page = parseInt(req.query.page) || 1;
+    const skip = (current_page - 1) * per_page;
 
-      const filter = req.query.filter || "";
-      const regex = filter ? new RegExp(filter, "i") : null;
+    const filter = req.query.filter || "";
+    const regex = filter ? new RegExp(filter, "i") : null;
 
-      const pipeline = [
-        // Join user
-        {
-          $lookup: {
-            from: "users",
-            localField: "user_id",
-            foreignField: "_id",
-            as: "user",
-          },
-        },
-        { $unwind: "$user" },
+    const classId = req.query.classId; // optional class filter
 
-        // Apply filter on user fields
-        {
-          $match: regex
-            ? {
-                $or: [
-                  { "user.name": regex },
-                  { "user.email": regex },
-                  { "user.username": regex },
-                ],
-              }
-            : {},
-        },
+    // Build dynamic match conditions
+    const matchConditions = [];
 
-        // Join class
-        {
-          $lookup: {
-            from: "classes",
-            localField: "class_id",
-            foreignField: "_id",
-            as: "classData",
-          },
-        },
-        { $unwind: "$classData" },
-
-        // Join department
-        {
-          $lookup: {
-            from: "departments",
-            localField: "classData.department_id",
-            foreignField: "_id",
-            as: "classData.department",
-          },
-        },
-        { $unwind: "$classData.department" },
-
-        // Facet for pagination
-        {
-          $facet: {
-            metadata: [{ $count: "total" }],
-            data: [{ $skip: skip }, { $limit: per_page }],
-          },
-        },
-      ];
-
-      const result = await Student.aggregate(pipeline);
-
-      const total = result[0].metadata[0]?.total || 0;
-      const students = result[0].data;
-
-      return res.json({
-        success: true,
-        data: students,
-        pagination: {
-          total,
-          per_page,
-          current_page,
-          total_pages: Math.ceil(total / per_page),
-        },
+    if (regex) {
+      matchConditions.push({
+        $or: [
+          { "user.name": regex },
+          { "user.email": regex },
+          { "user.username": regex },
+        ],
       });
-    } catch (error) {
-      next(error);
     }
+
+    if (classId) {
+      matchConditions.push({
+        class_id: new mongoose.Types.ObjectId(classId),
+      });
+    }
+
+    const pipeline = [
+      // Join user
+      {
+        $lookup: {
+          from: "users",
+          localField: "user_id",
+          foreignField: "_id",
+          as: "user",
+        },
+      },
+      { $unwind: "$user" },
+
+      // Apply filters if present
+      {
+        $match: matchConditions.length ? { $and: matchConditions } : {},
+      },
+
+      // Join class
+      {
+        $lookup: {
+          from: "classes",
+          localField: "class_id",
+          foreignField: "_id",
+          as: "classData",
+        },
+      },
+      { $unwind: "$classData" },
+
+      // Join department
+      {
+        $lookup: {
+          from: "departments",
+          localField: "classData.department_id",
+          foreignField: "_id",
+          as: "classData.department",
+        },
+      },
+      { $unwind: "$classData.department" },
+
+      // Facet for pagination
+      {
+        $facet: {
+          metadata: [{ $count: "total" }],
+          data: [{ $skip: skip }, { $limit: per_page }],
+        },
+      },
+    ];
+
+    const result = await Student.aggregate(pipeline);
+    const total = result[0].metadata[0]?.total || 0;
+    const students = result[0].data;
+
+    return res.json({
+      success: true,
+      data: students,
+      pagination: {
+        total,
+        per_page,
+        current_page,
+        total_pages: Math.ceil(total / per_page),
+      },
+    });
+  } catch (error) {
+    next(error);
   }
+}
+
 
   static async updateStudent(req, res, next) {
     try {

@@ -68,4 +68,41 @@ export class AttendanceValidator {
       query("subject_id", "Subject not provided").isString(),
     ];
   }
+
+  static studentAttendance() {
+    return [
+      query("subject", "Subject not provided").isString(),
+      query("from_date", "Pick From date")
+        .isISO8601()
+        .toDate()
+        .custom((value, { req }) => {
+          const fromDate = new Date(value);
+          fromDate.setHours(0, 0, 0, 0); // normalize to midnight
+
+          // optional: prevent future from_date
+          const today = new Date();
+          today.setHours(0, 0, 0, 0);
+          if (fromDate > today) {
+            throw new Error("From date cannot be in the future");
+          }
+          return true;
+        }),
+
+      query("to_date", "Pick To date")
+        .isISO8601()
+        .toDate()
+        .custom((value, { req }) => {
+          const toDate = new Date(value);
+          toDate.setHours(23, 59, 59, 999); // end of day
+
+          const fromDate = new Date(req.query.from_date);
+          fromDate.setHours(0, 0, 0, 0);
+
+          if (toDate < fromDate) {
+            throw new Error("To date cannot be earlier than From date");
+          }
+          return true;
+        }),
+    ];
+  }
 }

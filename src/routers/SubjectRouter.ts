@@ -20,7 +20,7 @@ class SubjectRouter {
 
     this.router.get(
       "/subjects",
-      // GlobalMiddleware.auth,
+      GlobalMiddleware.auth,
       SubjectController.getAllSubjects
     );
 
@@ -39,7 +39,7 @@ class SubjectRouter {
     );
     this.router.get(
       "/fetchClassId",
-      GlobalMiddleware.auth,
+      // GlobalMiddleware.auth,
       SubjectValidator.fetchClassId(),
       GlobalMiddleware.checkError,
       SubjectController.fetchClassId

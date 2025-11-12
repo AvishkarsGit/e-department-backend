@@ -1,4 +1,4 @@
-import * as Multer from "multer";
+import Multer from "multer";
 
 const storageOptions = Multer.diskStorage({
   destination: (req, file, cb) => {

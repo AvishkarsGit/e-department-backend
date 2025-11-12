@@ -6,6 +6,7 @@ import { Cloudinary } from "../utils/Cloudinary";
 import Faculty from "../models/Faculty";
 import Student from "../models/Student";
 import mongoose from "mongoose";
+import Class from "../models/Class";
 
 export class UserController {
   static async signup(req, res, next) {
@@ -37,7 +38,7 @@ export class UserController {
         phone,
         photo,
         role,
-        account_status: true,
+        account_status: role === "admin" ? true : false,
         cloud_public_id: public_id,
         verification_token,
         verification_token_time: Date.now() + Utils.MAX_TOKEN_TIME,
@@ -195,26 +196,26 @@ export class UserController {
       next(error);
     }
   }
-
   static async profile(req, res, next) {
     try {
       const userId = req.user.id;
 
-      // Use aggregation on the User collection
       const pipeline = [
         {
           $match: { _id: new mongoose.Types.ObjectId(userId) },
         },
+
+        // Lookup Faculty details (for subjects + guardians)
         {
           $lookup: {
-            from: "faculties", // collection name in MongoDB (check exact name)
+            from: "faculties",
             localField: "_id",
             foreignField: "user_id",
             as: "facultyData",
             pipeline: [
               {
                 $lookup: {
-                  from: "subjects", // collection name in MongoDB
+                  from: "subjects",
                   localField: "subjects",
                   foreignField: "_id",
                   as: "subjects",
@@ -233,11 +234,69 @@ export class UserController {
                 $project: {
                   _id: 0,
                   subjects: 1,
+                  guardian: 1,
                 },
               },
             ],
           },
         },
+
+        // Lookup Student details (with class + department)
+        {
+          $lookup: {
+            from: "students",
+            localField: "_id",
+            foreignField: "user_id",
+            as: "studentData",
+            pipeline: [
+              {
+                $lookup: {
+                  from: "classes",
+                  localField: "class_id",
+                  foreignField: "_id",
+                  as: "classData",
+                  pipeline: [
+                    {
+                      $lookup: {
+                        from: "departments",
+                        localField: "department_id",
+                        foreignField: "_id",
+                        as: "department",
+                        pipeline: [
+                          {
+                            $project: {
+                              _id: 1,
+                              name: 1,
+                              code: 1,
+                            },
+                          },
+                        ],
+                      },
+                    },
+                    {
+                      $project: {
+                        _id: 1,
+                        year: 1,
+                        semester: 1,
+                        department: { $arrayElemAt: ["$department", 0] },
+                      },
+                    },
+                  ],
+                },
+              },
+              {
+                $project: {
+                  _id: 0,
+                  guardian: 1,
+                  rollNo: 1, // ✅ Include rollNo here
+                  classData: { $arrayElemAt: ["$classData", 0] },
+                },
+              },
+            ],
+          },
+        },
+
+        // Final projection
         {
           $project: {
             _id: 1,
@@ -246,9 +305,11 @@ export class UserController {
             phone: 1,
             photo: 1,
             username: 1,
+            account_status: 1,
             role: 1,
             created_at: 1,
             email_verified: 1,
+
             subjects: {
               $cond: {
                 if: {
@@ -261,15 +322,44 @@ export class UserController {
                 else: [],
               },
             },
+
+            guardian: {
+              $cond: {
+                if: { $eq: ["$role", "faculty"] },
+                then: { $arrayElemAt: ["$facultyData.guardian", 0] },
+                else: {
+                  $cond: {
+                    if: { $eq: ["$role", "student"] },
+                    then: { $arrayElemAt: ["$studentData.guardian", 0] },
+                    else: [],
+                  },
+                },
+              },
+            },
+
+            classData: {
+              $cond: {
+                if: { $eq: ["$role", "student"] },
+                then: { $arrayElemAt: ["$studentData.classData", 0] },
+                else: null,
+              },
+            },
+
+            // ✅ Add rollNo to final projection for students
+            rollNo: {
+              $cond: {
+                if: { $eq: ["$role", "student"] },
+                then: { $arrayElemAt: ["$studentData.rollNo", 0] },
+                else: null,
+              },
+            },
           },
         },
       ];
 
       const result = await User.aggregate(pipeline);
 
-      if (!result.length) {
-        throw new Error("User not found");
-      }
+      if (!result.length) throw new Error("User not found");
 
       return res.json({
         success: true,
@@ -331,7 +421,6 @@ export class UserController {
   static async sendResendPasswordToken(req, res, next) {
     try {
       const email = req.user.email;
-      console.log("email", email);
       const otp = Utils.generateVerificationToken();
       const updated = await User.findOneAndUpdate(
         { email },
@@ -369,10 +458,9 @@ export class UserController {
 
   static async resetPassword(req, res, next) {
     try {
-      const { otp, new_password } = req.body;
-
+      const { otp, password } = req.body;
       //encrypt password
-      const hashPassword = await JWT.encryptPassword(new_password);
+      const hashPassword = await JWT.encryptPassword(password);
 
       const updated = await User.findOneAndUpdate(
         {
@@ -397,6 +485,26 @@ export class UserController {
       return res.json({
         success: true,
         data: updated,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  static async verifyResetPasswordOtp(req, res, next) {
+    try {
+      const { email, otp } = req.body;
+
+      const user = await User.findOne({
+        email,
+        reset_password_verification_token: otp,
+        reset_password_verification_token_time: { $gt: Date.now() },
+      });
+      if (!user) {
+        throw new Error("Entered otp is wrong or expired");
+      }
+      return res.json({
+        success: true,
       });
     } catch (error) {
       next(error);
@@ -433,6 +541,7 @@ export class UserController {
 
       const payload = {
         id: decoded.id,
+        role: decoded.role,
       };
 
       const accessToken = JWT.generateAccessToken(payload);
@@ -659,10 +768,11 @@ export class UserController {
 
   static async updateProfile(req, res, next) {
     try {
-      const { name, email, phone } = req.body;
-
+      const { name, phone, guardians, department, semester, year, rollNo } =
+        req.body;
       const id = req.user.id;
       if (!id) throw new Error("Id not found");
+      ``;
 
       //find user first
       const user = await User.findOne({ _id: id });
@@ -686,7 +796,7 @@ export class UserController {
         public_id = result?.public_id;
       }
 
-      let data = { name, email, phone, cloud_public_id: public_id };
+      let data = { name, phone, cloud_public_id: public_id };
       let finalData = photo ? { ...data, photo } : data;
 
       const updatedData = await User.findOneAndUpdate(
@@ -701,6 +811,52 @@ export class UserController {
 
       if (!updatedData) {
         throw new Error("Failed to update");
+      }
+
+      // Only update if guardians or class-related fields are provided
+      if (
+        (guardians && guardians !== "[]" && guardians !== "{}") ||
+        (department && semester && year) ||
+        rollNo
+      ) {
+        // Make sure user is a student
+        const student = await Student.findOne({ user_id: user._id });
+        if (!student) {
+          console.log("User is not a student, skipping student update.");
+        } else {
+          const guardianData = guardians
+            ? JSON.parse(guardians)
+            : student.guardian;
+
+          let classId = student.class_id; // keep old class if no new one provided
+          if (department && semester && year) {
+            const classData = await Class.findOne({
+              department_id: department,
+              semester,
+              year,
+            })
+              .select("_id")
+              .lean();
+
+            if (!classData) throw new Error("Class not found");
+            classId = classData._id;
+          }
+
+          const isStudentUpdated = await Student.findOneAndUpdate(
+            { user_id: user._id },
+            {
+              $set: {
+                guardian: guardianData,
+                class_id: classId,
+                rollNo,
+              },
+            },
+            { new: true }
+          );
+
+          if (!isStudentUpdated)
+            throw new Error("Failed to update student info");
+        }
       }
 
       return res.json({
@@ -778,4 +934,41 @@ export class UserController {
       next(error);
     }
   }
+
+  static async acceptUser(req, res, next) {
+    try {
+      const { id, status } = req.body;
+      console.log("id", id);
+      console.log("status", status);
+      if (!id) {
+        throw new Error("Id is not available");
+      }
+      if (!status) {
+        throw new Error("Status is not available");
+      }
+      const user = await User.findOneAndUpdate(
+        {
+          _id: id,
+        },
+        {
+          $set: {
+            account_status: status,
+          },
+        },
+        {
+          new: true,
+        }
+      );
+      if (!user) throw new Error("failed to update status");
+
+      return res.json({
+        success: true,
+        data: user,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  
 }

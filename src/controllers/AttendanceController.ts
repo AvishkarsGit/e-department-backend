@@ -7,6 +7,7 @@ import Period from "../models/Period";
 import Student from "../models/Student";
 import Subject from "../models/Subject";
 import * as moment from "moment";
+import User from "../models/User";
 
 export class AttendanceController {
   static async getSubjects(req, res, next) {
@@ -719,6 +720,245 @@ export class AttendanceController {
       });
     } catch (error) {
       next(error);
+    }
+  }
+
+  static async studentAttendance(req, res, next) {
+    try {
+      const {
+        class_id,
+        subject,
+        from_date,
+        to_date,
+        page = 1,
+        limit = 10,
+      } = req.query;
+
+      const student = await Student.findOne({ user_id: req.user.id })
+        .select("_id")
+        .lean();
+      const student_id = student?._id;
+
+      if (!student_id || !class_id) {
+        return res.status(400).json({
+          success: false,
+          message: "student_id and class_id are required.",
+        });
+      }
+
+      // --- If no valid subject is passed, return empty response ---
+      if (
+        !subject ||
+        typeof subject !== "string" ||
+        subject.trim() === "" ||
+        !mongoose.Types.ObjectId.isValid(subject)
+      ) {
+        return res.json({
+          success: true,
+          pagination: {
+            page: parseInt(page as string, 10),
+            limit: parseInt(limit as string, 10),
+            totalPages: 0,
+            totalResults: 0,
+          },
+          summary: {
+            total_classes: 0,
+            attended_classes: 0,
+            attendance_percentage: 0,
+          },
+          data: [],
+        });
+      }
+
+      // --- Pagination setup ---
+      const limitInt = Math.max(parseInt(limit as string, 10) || 10, 1);
+      const pageInt = Math.max(parseInt(page as string, 10) || 1, 1);
+      const skipInt = (pageInt - 1) * limitInt;
+
+      const studentObjectId = new mongoose.Types.ObjectId(student_id);
+      const classObjectId = new mongoose.Types.ObjectId(class_id as string);
+      const subjectObjectId = new mongoose.Types.ObjectId(subject);
+
+      // --- Build filter ---
+      const matchFilter: any = {
+        class_id: classObjectId,
+        student_id: studentObjectId,
+        subject_id: subjectObjectId,
+      };
+
+      if (from_date || to_date) {
+        matchFilter.date = {};
+        if (from_date) {
+          const startDateObj = new Date(from_date as string);
+          startDateObj.setHours(0, 0, 0, 0);
+          matchFilter.date.$gte = startDateObj;
+        }
+        if (to_date) {
+          const endDateObj = new Date(to_date as string);
+          endDateObj.setHours(23, 59, 59, 999);
+          matchFilter.date.$lte = endDateObj;
+        }
+      }
+
+      // --- Total count ---
+      const totalCount = await Attendance.countDocuments(matchFilter);
+      const totalPages = Math.ceil(totalCount / limitInt);
+
+      // --- Aggregation ---
+      const pipeline: any[] = [
+        { $match: matchFilter },
+
+        // 🔹 Lookup Subject
+        {
+          $lookup: {
+            from: "subjects",
+            localField: "subject_id",
+            foreignField: "_id",
+            as: "subject",
+          },
+        },
+        { $unwind: { path: "$subject", preserveNullAndEmptyArrays: true } },
+
+        // 🔹 Lookup ClassSession
+        {
+          $lookup: {
+            from: "classsessions", // collection name (pluralized from "ClassSession")
+            localField: "session_id",
+            foreignField: "_id",
+            as: "session",
+          },
+        },
+        { $unwind: { path: "$session", preserveNullAndEmptyArrays: true } },
+
+        // 🔹 Lookup Period (inside ClassSession)
+        {
+          $lookup: {
+            from: "periods",
+            localField: "session.period",
+            foreignField: "_id",
+            as: "period",
+          },
+        },
+        { $unwind: { path: "$period", preserveNullAndEmptyArrays: true } },
+
+        // 🔹 Sort + Paginate
+        { $sort: { date: 1 } },
+        { $skip: skipInt },
+        { $limit: limitInt },
+
+        // 🔹 Final Projection
+        {
+          $project: {
+            _id: 0,
+            date: 1,
+            status: 1,
+            subject_id: 1,
+            subject_name: "$subject.name",
+            period_id: "$period._id",
+            period_text: "$period.period_text",
+            period_number: "$period.period",
+            start_time: "$period.start_time",
+            ending_time: "$period.ending_time",
+          },
+        },
+      ];
+
+      const records = await Attendance.aggregate(pipeline);
+
+      // --- Summary stats ---
+      const summaryPipeline = [
+        { $match: matchFilter },
+        {
+          $group: {
+            _id: null,
+            total_classes: { $sum: 1 },
+            attended_classes: {
+              $sum: { $cond: [{ $eq: ["$status", "present"] }, 1, 0] },
+            },
+          },
+        },
+        {
+          $addFields: {
+            attendance_percentage: {
+              $cond: [
+                { $eq: ["$total_classes", 0] },
+                0,
+                {
+                  $multiply: [
+                    { $divide: ["$attended_classes", "$total_classes"] },
+                    100,
+                  ],
+                },
+              ],
+            },
+          },
+        },
+        {
+          $project: {
+            _id: 0,
+            total_classes: 1,
+            attended_classes: 1,
+            attendance_percentage: { $round: ["$attendance_percentage", 2] },
+          },
+        },
+      ];
+
+      const summaryResult = await Attendance.aggregate(summaryPipeline);
+      const summary =
+        summaryResult.length > 0
+          ? summaryResult[0]
+          : { total_classes: 0, attended_classes: 0, attendance_percentage: 0 };
+
+      return res.json({
+        success: true,
+        pagination: {
+          page: pageInt,
+          limit: limitInt,
+          totalPages,
+          totalResults: totalCount,
+        },
+        summary,
+        data: records,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  static async fetchAllAttendance(req, res, next) {
+    try {
+      const userId = req.user.id;
+      const student = await Student.findOne({ user_id: userId })
+        .select("_id")
+        .lean();
+      if (!student) throw new Error("Student not found");
+
+      const summary = await AttendanceSummary.find({
+        student_id: student?._id,
+      });
+
+      const total_classes = summary.length;
+      const total_classes_attended = summary.reduce(
+        (acc, curr) => acc + curr.attended_classes,
+        0
+      );
+
+      const attendance_percentage =
+        total_classes === 0
+          ? 0
+          : (total_classes_attended / total_classes) * 100;
+
+      return res.json({
+        success: true,
+        data: summary,
+        summaries: {
+          total_classes,
+          total_classes_attended,
+          attendance_percentage,
+        },
+      });
+    } catch (err) {
+      next(err);
     }
   }
 }

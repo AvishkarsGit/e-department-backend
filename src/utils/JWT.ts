@@ -16,7 +16,7 @@ export class JWT {
 
   static generateAccessToken(payload) {
     const token = jwt.sign(payload, getEnvironmentVariables().jwt_secret_key, {
-      expiresIn: "1y",
+      expiresIn: "7d",
     });
     return token;
   }
@@ -26,7 +26,7 @@ export class JWT {
       payload,
       getEnvironmentVariables().refresh_secret_key,
       {
-        expiresIn: "1y",
+        expiresIn: "10d",
       }
     );
     return token;

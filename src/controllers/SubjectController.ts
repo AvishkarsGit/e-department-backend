@@ -1,4 +1,5 @@
 import Class from "../models/Class";
+import Student from "../models/Student";
 import Subject from "../models/Subject";
 
 export class SubjectController {
@@ -36,6 +37,10 @@ export class SubjectController {
 
   static async getAllSubjects(req, res, next) {
     try {
+      const user = req.user;
+      const id = user.id;
+      const role = user.role;
+
       const per_page = parseInt(req.query.size) || 5;
       const current_page = parseInt(req.query.page) || 1;
       const skip = (current_page - 1) * per_page;
@@ -43,16 +48,32 @@ export class SubjectController {
       const filter = req.query.filter || "";
       const regex = filter ? new RegExp(filter, "i") : null;
 
-      const matchStage = regex
+      // Common match stage for search filter
+      const matchStage: any = regex
         ? {
-            $or: [
-              { name: regex }, // ✅ subject name
-              { code: regex }, // ✅ subject code
-            ],
+            $or: [{ name: regex }, { code: regex }],
           }
         : {};
 
+      // ✅ Additional condition if user is a student
+      if (role === "student") {
+        const student = await Student.findOne({ user_id: id }).select(
+          "class_id"
+        );
+        if (!student) {
+          return res.status(404).json({
+            success: false,
+            message: "Student record not found.",
+          });
+        }
+
+        // Restrict to subjects belonging to student's class
+        matchStage.class_id = student.class_id;
+      }
+
       const pipeline = [
+        { $match: matchStage }, // ✅ Must be placed before lookups for efficiency
+
         {
           $lookup: {
             from: "classes",
@@ -71,13 +92,12 @@ export class SubjectController {
           },
         },
         { $unwind: "$class.department" },
-        { $match: matchStage },
         {
           $project: {
             _id: 1,
             name: 1,
             code: 1,
-            classData: "$class", // 👈 Rename here
+            classData: "$class",
           },
         },
         {
@@ -107,6 +127,7 @@ export class SubjectController {
       next(error);
     }
   }
+
   static async getAllSubjectsWithoutPagination(req, res, next) {
     try {
       const subjects = await Subject.find({});
