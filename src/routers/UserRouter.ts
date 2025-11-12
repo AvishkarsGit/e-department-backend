@@ -20,14 +20,9 @@ class UserRouter {
     //get profile
     this.router.get("/profile", GlobalMiddleware.auth, UserController.profile);
 
-    //get combine profile
-    //add admin middleware later
-    this.router.get(
-      "/view-profile/:user_id",
-      GlobalMiddleware.auth,
-      UserController.viewProfile
-    );
-
+    //check if user is exist or not
+    this.router.get("/exists", UserController.checkUserExists);
+    
     //get users with pagination
     this.router.get("/users", GlobalMiddleware.auth, UserController.getUsers);
 
@@ -37,9 +32,6 @@ class UserRouter {
       GlobalMiddleware.auth,
       UserController.getAllUsers
     );
-
-    //check if user is exist or not
-    this.router.get("/exists", UserController.checkUserExists);
 
     //check if admin is exists or not
     this.router.get("/checkAdminExists", UserController.checkAdminExists);
@@ -90,18 +82,12 @@ class UserRouter {
       GlobalMiddleware.checkError,
       UserController.updateProfile
     );
-
-    //user acceptance
-    this.router.post(
-      "/accept-user",
-      GlobalMiddleware.auth,
-      UserController.acceptUser
-    );
   }
 
   putRoutes() {}
 
   patchRoutes() {
+
     //send reset password token
     this.router.patch(
       "/send/reset/password/token",
@@ -110,9 +96,11 @@ class UserRouter {
       UserController.sendResendPasswordToken
     );
 
-    //send verification token email
+
+    //send verification token email again
     this.router.patch(
       "/send/verification/token",
+      GlobalMiddleware.auth,
       UserController.sendVerificationToken
     );
 
@@ -120,17 +108,10 @@ class UserRouter {
 
     this.router.patch(
       "/verify-email",
+      GlobalMiddleware.auth,
       UserValidator.verifyEmail(),
       GlobalMiddleware.checkError,
       UserController.verifyEmail
-    );
-
-    //verify reset password otp
-    this.router.patch(
-      "/verifyOtp",
-      UserValidator.verifyResetPasswordOtp(),
-      GlobalMiddleware.checkError,
-      UserController.verifyResetPasswordOtp
     );
 
     //reset password

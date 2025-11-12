@@ -1,0 +1,48 @@
+import { Router } from "express";
+import { UploadsController } from "../controllers/UploadsController";
+import { UploadsValidator } from "../validators/UploadsValidator";
+import { GlobalMiddleware } from "../middlewares/GlobalMiddleware";
+import { Utils } from "../utils/Utils";
+
+class UploadsRouter {
+  public router: Router;
+
+  constructor() {
+    this.router = Router();
+    this.getRoutes();
+    this.postRoutes();
+    this.putRoutes();
+    this.patchRoutes();
+    this.deleteRoutes();
+  }
+
+  getRoutes() {
+    // get all study material with pagination
+    this.router.get(
+      "/getAllMaterial",
+      GlobalMiddleware.auth,
+      UploadsController.getAllMaterial
+    );
+  }
+
+  postRoutes() {
+
+    //upload material
+    this.router.post(
+      "/upload",
+      GlobalMiddleware.auth,
+      new Utils().multer.single("uploaded_url"),
+      UploadsValidator.uploadMaterial(),
+      GlobalMiddleware.checkError,
+      UploadsController.uploadMaterial
+    );
+  }
+
+  putRoutes() {}
+
+  patchRoutes() {}
+
+  deleteRoutes() {}
+}
+
+export default new UploadsRouter().router;

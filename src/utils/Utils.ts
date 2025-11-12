@@ -16,6 +16,7 @@ const fileFilter = (req, file, cb) => {
   const allowedMimes = [
     "image/jpeg",
     "image/png",
+    "application/pdf", // PDF
     "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", // Excel
     "application/vnd.ms-excel", // older Excel format
   ];

@@ -1,11 +1,11 @@
 import { v2 as cloudinary } from "cloudinary";
 import * as fs from "fs";
 export class Cloudinary {
-  static async uploadToCloud(filePath: string) {
+  static async uploadToCloud(filePath: string, folder = "users") {
     try {
       const uploadResult = await cloudinary.uploader.upload(filePath, {
         resource_type: "auto",
-        folder: "users",
+        folder: folder,
       });
       if (uploadResult) {
         //successfully upload file to cloudinary, unlink/delete the local files
@@ -33,7 +33,7 @@ export class Cloudinary {
         folder: "attendance_reports",
       });
 
-     fs.unlinkSync(file);
+      fs.unlinkSync(file);
 
       return response;
     } catch (error) {

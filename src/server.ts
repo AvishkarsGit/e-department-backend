@@ -20,6 +20,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { McpTools } from "./mcp/McpTools";
 import ChatRouter from "./routers/ChatRouter";
 import DashboardRouter from "./routers/DashboardRouter";
+import UploadsRouter from "./routers/UploadsRouter";
 
 export class Server {
   public app = express();
@@ -63,6 +64,7 @@ export class Server {
     this.app.use("/api/reports", ReportRouter);
     this.app.use("/api/chat", ChatRouter);
     this.app.use("/api/dashboard", DashboardRouter);
+    this.app.use("/api/uploads", UploadsRouter);
   }
 
   connectMongoDB() {
