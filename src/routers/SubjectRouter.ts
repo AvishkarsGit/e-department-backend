@@ -21,25 +21,30 @@ class SubjectRouter {
     this.router.get(
       "/subjects",
       GlobalMiddleware.auth,
+      GlobalMiddleware.checkRole("admin", "faculty", "student"),
       SubjectController.getAllSubjects
     );
 
     //get all subjects without pagination
     this.router.get(
-      '/allSubjects',
+      "/allSubjects",
       GlobalMiddleware.auth,
+      GlobalMiddleware.checkRole("admin", "faculty"),
       SubjectController.getAllSubjectsWithoutPagination
-    )
+    );
 
     //get particular subject details
     this.router.get(
       "/get-subject",
       GlobalMiddleware.auth,
+      GlobalMiddleware.checkRole("admin", "faculty"),
       SubjectController.getSubject
     );
+
     this.router.get(
       "/fetchClassId",
-      // GlobalMiddleware.auth,
+      GlobalMiddleware.auth,
+      GlobalMiddleware.checkRole("admin", "faculty"),
       SubjectValidator.fetchClassId(),
       GlobalMiddleware.checkError,
       SubjectController.fetchClassId
@@ -49,6 +54,8 @@ class SubjectRouter {
     //add subject
     this.router.post(
       "/add",
+      GlobalMiddleware.auth,
+      GlobalMiddleware.checkRole("admin", "faculty"),
       SubjectValidator.addSubject(),
       GlobalMiddleware.checkError,
       SubjectController.addSubject
@@ -58,7 +65,8 @@ class SubjectRouter {
     //update subject
     this.router.patch(
       "/update/:id",
-      // GlobalMiddleware.auth,
+      GlobalMiddleware.auth,
+      GlobalMiddleware.checkRole("admin", "faculty"),
       SubjectValidator.updateSubject(),
       GlobalMiddleware.checkError,
       SubjectController.updateSubject
@@ -68,7 +76,8 @@ class SubjectRouter {
     //delete subject
     this.router.delete(
       "/delete/:id",
-      //  GlobalMiddleware.auth,
+      GlobalMiddleware.auth,
+      GlobalMiddleware.checkRole("admin", "faculty"),
       SubjectController.deleteSubject
     );
   }

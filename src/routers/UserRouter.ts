@@ -22,14 +22,20 @@ class UserRouter {
 
     //check if user is exist or not
     this.router.get("/exists", UserController.checkUserExists);
-    
+
     //get users with pagination
-    this.router.get("/users", GlobalMiddleware.auth, UserController.getUsers);
+    this.router.get(
+      "/users",
+      GlobalMiddleware.auth,
+      GlobalMiddleware.checkRole("admin"),
+      UserController.getUsers
+    );
 
     //get all users
     this.router.get(
       "/allUsers",
       GlobalMiddleware.auth,
+      GlobalMiddleware.checkRole("admin"),
       UserController.getAllUsers
     );
 
@@ -67,6 +73,7 @@ class UserRouter {
     this.router.post(
       "/add",
       GlobalMiddleware.auth,
+      GlobalMiddleware.checkRole("admin"),
       new Utils().multer.single("photo"),
       UserValidator.addUser(),
       GlobalMiddleware.checkError,
@@ -87,7 +94,6 @@ class UserRouter {
   putRoutes() {}
 
   patchRoutes() {
-
     //send reset password token
     this.router.patch(
       "/send/reset/password/token",
@@ -95,7 +101,6 @@ class UserRouter {
       GlobalMiddleware.checkError,
       UserController.sendResendPasswordToken
     );
-
 
     //send verification token email again
     this.router.patch(
@@ -125,6 +130,8 @@ class UserRouter {
     //update users data
     this.router.patch(
       "/update/:id",
+      GlobalMiddleware.auth,
+      GlobalMiddleware.checkRole("admin"),
       new Utils().multer.single("photo"), //upload photo
       UserValidator.updateUser(),
       GlobalMiddleware.checkError,
@@ -136,6 +143,7 @@ class UserRouter {
     this.router.delete(
       "/delete/:id",
       GlobalMiddleware.auth,
+      GlobalMiddleware.checkRole("admin"),
       UserController.deleteUser
     );
   }

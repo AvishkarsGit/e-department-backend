@@ -21,6 +21,7 @@ class PeriodsRouter {
     this.router.get(
       "/periods",
       GlobalMiddleware.auth,
+      GlobalMiddleware.checkRole("admin","faculty"),
       PeriodsController.getAllPeriods
     );
   }
@@ -30,6 +31,7 @@ class PeriodsRouter {
     this.router.post(
       "/save",
       GlobalMiddleware.auth,
+      GlobalMiddleware.checkRole("admin"),
       PeriodsValidator.savePeriod(),
       GlobalMiddleware.checkError,
       PeriodsController.savePeriod
@@ -41,6 +43,7 @@ class PeriodsRouter {
     this.router.patch(
       "/update/:id",
       GlobalMiddleware.auth,
+      GlobalMiddleware.checkRole("admin"),
       PeriodsValidator.updatePeriod(),
       GlobalMiddleware.checkError,
       PeriodsController.updatePeriod
@@ -52,6 +55,7 @@ class PeriodsRouter {
     this.router.delete(
       "/delete/:id",
       GlobalMiddleware.auth,
+      GlobalMiddleware.checkRole("admin"),
       PeriodsController.deletePeriod
     );
   }

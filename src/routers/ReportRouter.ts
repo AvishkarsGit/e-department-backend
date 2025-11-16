@@ -26,6 +26,7 @@ class ReportRouter {
     this.router.post(
       "/upload",
       GlobalMiddleware.auth,
+      GlobalMiddleware.checkRole("admin", "faculty"),
       new Utils().multer.single("file"),
       ReportController.uploadReport
     );
@@ -34,6 +35,7 @@ class ReportRouter {
     this.router.post(
       "/send/bulk/message",
       GlobalMiddleware.auth,
+      GlobalMiddleware.checkRole("admin", "faculty"),
       ReportController.sendBulkMessage
     );
   }

@@ -20,6 +20,7 @@ class StudentsRouter {
     this.router.get(
       "/students",
       GlobalMiddleware.auth,
+      GlobalMiddleware.checkRole("admin", "faculty"),
       StudentController.getStudents
     );
 
@@ -27,6 +28,7 @@ class StudentsRouter {
     this.router.get(
       "/students/export",
       GlobalMiddleware.auth,
+      GlobalMiddleware.checkRole("admin", "faculty"),
       StudentController.getStudentsForExcel
     );
   }
@@ -48,6 +50,7 @@ class StudentsRouter {
     this.router.patch(
       "/update/:user_id/:id",
       GlobalMiddleware.auth,
+      GlobalMiddleware.checkRole("admin", "faculty"),
       new Utils().multer.single("photo"),
       StudentValidator.updateStudent(),
       GlobalMiddleware.checkError,
@@ -58,10 +61,12 @@ class StudentsRouter {
   deleteRoutes() {
 
     //delete data
-    this.router.delete('/delete/:user_id/:id',
+    this.router.delete(
+      "/delete/:user_id/:id",
       GlobalMiddleware.auth,
+      GlobalMiddleware.checkRole("admin", "faculty"),
       StudentController.deleteStudent
-    )
+    );
   }
 }
 

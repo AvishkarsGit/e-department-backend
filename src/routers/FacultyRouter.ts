@@ -2,7 +2,7 @@ import { Router } from "express";
 import { Utils } from "../utils/Utils";
 import { FacultyValidator } from "../validators/FacultyValidator";
 import { GlobalMiddleware } from "../middlewares/GlobalMiddleware";
-import { FacultyController } from "../controllers/FacultyController";
+import { FacultyController } from "../controllers/facultyController";
 
 class ClassRouter {
   public router: Router;
@@ -20,11 +20,13 @@ class ClassRouter {
     this.router.get(
       "/get-faculty",
       GlobalMiddleware.auth,
+      GlobalMiddleware.checkRole("admin", "faculty"),
       FacultyController.getFaculty
     );
     this.router.get(
       "/get-all-faculty",
       GlobalMiddleware.auth,
+      GlobalMiddleware.checkRole("admin", "faculty"),
       FacultyController.getAllFaculties
     );
   }
@@ -33,7 +35,8 @@ class ClassRouter {
     //create class
     this.router.post(
       "/create-faculty",
-      // GlobalMiddleware.auth,
+      GlobalMiddleware.auth,
+      GlobalMiddleware.checkRole("admin"),
       new Utils().multer.single("photo"),
       FacultyValidator.addFaculty(),
       FacultyController.createFaculty
@@ -49,6 +52,7 @@ class ClassRouter {
     this.router.patch(
       "/update-faculty/:user_id/:id",
       GlobalMiddleware.auth,
+      GlobalMiddleware.checkRole("admin"),
       new Utils().multer.single("photo"),
       FacultyValidator.updateFaculty(),
       GlobalMiddleware.checkError,
@@ -59,6 +63,7 @@ class ClassRouter {
     this.router.patch(
       "/assign-faculty",
       GlobalMiddleware.auth,
+      GlobalMiddleware.checkRole("admin"),
       FacultyValidator.assignSubjects(),
       GlobalMiddleware.checkError,
       FacultyController.assignSubjects
@@ -70,6 +75,7 @@ class ClassRouter {
     this.router.delete(
       "/delete-faculty/:user_id/:id",
       GlobalMiddleware.auth,
+      GlobalMiddleware.checkRole("admin"),
       FacultyController.deleteFaculty
     );
   }

@@ -27,4 +27,24 @@ export class GlobalMiddleware {
       next(error);
     }
   }
+
+  static checkRole(...allowedRoles) {
+    return (req, res, next) => {
+      const userRole = req.user?.role;
+
+      // Handle missing user or role
+      if (!userRole) {
+        req.errorStatus = 401;
+        return next(new Error("User role is missing"));
+      }
+
+      // Check if role is allowed
+      if (allowedRoles.includes(userRole)) {
+        return next();
+      } else {
+        req.errorStatus = 401;
+        return next(new Error("You are not authorized to perform this action"));
+      }
+    };
+  }
 }

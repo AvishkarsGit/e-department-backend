@@ -17,6 +17,7 @@ class DepartmentRouter {
     this.router.get(
       "/get-department",
       GlobalMiddleware.auth,
+      GlobalMiddleware.checkRole("admin"),
       DepartmentController.getDepartments
     );
 
@@ -32,6 +33,7 @@ class DepartmentRouter {
     this.router.post(
       "/create-department",
       GlobalMiddleware.auth,
+      GlobalMiddleware.checkRole("admin"),
       DepartmentValidator.createDepartment(),
       GlobalMiddleware.checkError,
       DepartmentController.createDepartment
@@ -41,6 +43,7 @@ class DepartmentRouter {
     this.router.delete(
       "/delete-department/:id",
       GlobalMiddleware.auth,
+      GlobalMiddleware.checkRole("admin"),
       DepartmentController.deleteDepartment
     );
   }
@@ -48,6 +51,7 @@ class DepartmentRouter {
     this.router.patch(
       "/update-department/:id",
       GlobalMiddleware.auth,
+      GlobalMiddleware.checkRole("admin"),
       DepartmentController.updateDepartment
     );
   }

@@ -21,6 +21,7 @@ class UploadsRouter {
     this.router.get(
       "/getAllMaterial",
       GlobalMiddleware.auth,
+      GlobalMiddleware.checkRole("admin", "student", "faculty"),
       UploadsController.getAllMaterial
     );
 
@@ -28,6 +29,7 @@ class UploadsRouter {
     this.router.get(
       "/download/:id",
       GlobalMiddleware.auth,
+      GlobalMiddleware.checkRole("admin", "student", "faculty"),
       UploadsController.downloadFile
     );
   }
@@ -37,6 +39,7 @@ class UploadsRouter {
     this.router.post(
       "/upload",
       GlobalMiddleware.auth,
+      GlobalMiddleware.checkRole("admin", "faculty"),
       new Utils().multer.single("uploaded_url"),
       UploadsValidator.uploadMaterial(),
       GlobalMiddleware.checkError,
@@ -51,6 +54,7 @@ class UploadsRouter {
     this.router.patch(
       "/update/:id",
       GlobalMiddleware.auth,
+      GlobalMiddleware.checkRole("admin", "faculty"),
       new Utils().multer.single("uploaded_url"),
       UploadsValidator.updateMaterial(),
       GlobalMiddleware.checkError,
@@ -63,6 +67,7 @@ class UploadsRouter {
     this.router.delete(
       "/delete/:id",
       GlobalMiddleware.auth,
+      GlobalMiddleware.checkRole("admin", "faculty"),
       UploadsController.deleteMaterial
     );
   }
