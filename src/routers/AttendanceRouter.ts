@@ -45,7 +45,7 @@ class AttendanceRouter {
     this.router.get(
       "/fetchSubjectsByClass/:class_id",
       GlobalMiddleware.auth,
-      GlobalMiddleware.checkRole("admin", "faculty"),
+      GlobalMiddleware.checkRole("admin", "faculty","student"),
       AttendanceController.fetchSubjectsByClass
     );
 
