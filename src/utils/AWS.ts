@@ -40,6 +40,10 @@ export class AWS {
         getEnvironmentVariables().aws_region
       }.amazonaws.com/${uploadKey}`;
 
+      if (url && uploadKey) {
+        //successfully upload file to cloudinary, unlink/delete the local files
+        fs.unlinkSync(filePath);
+      }
       return {
         secure_url: url,
         public_id: uploadKey, // Similar to cloudinary public_id
