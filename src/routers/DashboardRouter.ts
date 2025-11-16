@@ -13,9 +13,9 @@ class DashboardRouter {
     this.patchRoutes();
     this.deleteRoutes();
   }
-  
+
   getRoutes() {
-    //get pie-chart data
+    //get boxes data
     this.router.get(
       "/boxes",
       GlobalMiddleware.auth,

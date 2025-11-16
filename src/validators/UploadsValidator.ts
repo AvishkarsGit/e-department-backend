@@ -16,4 +16,12 @@ export class UploadsValidator {
       ),
     ];
   }
+
+  static updateMaterial() {
+    return [
+      body("title", "Title is required").isString(),
+      body("upload_type", "Type of document is required").isString(),
+      body("subject_id", "Subject must be present").isString(),
+    ];
+  }
 }

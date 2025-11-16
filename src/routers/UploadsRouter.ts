@@ -23,10 +23,16 @@ class UploadsRouter {
       GlobalMiddleware.auth,
       UploadsController.getAllMaterial
     );
+
+    //download file
+    this.router.get(
+      "/download/:id",
+      GlobalMiddleware.auth,
+      UploadsController.downloadFile
+    );
   }
 
   postRoutes() {
-
     //upload material
     this.router.post(
       "/upload",
@@ -40,9 +46,26 @@ class UploadsRouter {
 
   putRoutes() {}
 
-  patchRoutes() {}
+  patchRoutes() {
+    //update material
+    this.router.patch(
+      "/update/:id",
+      GlobalMiddleware.auth,
+      new Utils().multer.single("uploaded_url"),
+      UploadsValidator.updateMaterial(),
+      GlobalMiddleware.checkError,
+      UploadsController.updateMaterial
+    );
+  }
 
-  deleteRoutes() {}
+  deleteRoutes() {
+    //delete material
+    this.router.delete(
+      "/delete/:id",
+      GlobalMiddleware.auth,
+      UploadsController.deleteMaterial
+    );
+  }
 }
 
 export default new UploadsRouter().router;

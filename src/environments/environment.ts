@@ -10,6 +10,10 @@ export interface Environment {
   cloud_name: string;
   cloud_api_key: string;
   cloud_api_secret: string;
+  aws_access_key_id: string;
+  aws_secret_access_key: string;
+  bucket_name: string;
+  aws_region: string;
 }
 
 export function getEnvironmentVariables() {

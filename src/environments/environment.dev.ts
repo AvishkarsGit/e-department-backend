@@ -7,4 +7,8 @@ export const DevEnvironment = {
   cloud_name: process.env.DEV_CLOUDINARY_NAME,
   cloud_api_key: process.env.DEV_CLOUDINARY_API_KEY,
   cloud_api_secret: process.env.DEV_CLOUDINARY_API_SECRET,
+  aws_access_key_id: process.env.AWS_ACCESS_KEY,
+  aws_secret_access_key: process.env.AWS_SECRET_KEY,
+  bucket_name: process.env.BUCKET_NAME,
+  aws_region: process.env.AWS_REGION,
 };
