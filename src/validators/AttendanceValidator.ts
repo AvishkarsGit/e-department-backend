@@ -1,5 +1,5 @@
 import { body, query } from "express-validator";
-// 
+//
 export class AttendanceValidator {
   static saveAttendance() {
     return [
