@@ -89,6 +89,13 @@ class UserRouter {
       GlobalMiddleware.checkError,
       UserController.updateProfile
     );
+    //accept user
+    this.router.post(
+      "/accept-user",
+      GlobalMiddleware.auth,
+      GlobalMiddleware.checkRole("admin"),
+      UserController.acceptUser
+    );
   }
 
   putRoutes() {}
@@ -109,8 +116,15 @@ class UserRouter {
       UserController.sendVerificationToken
     );
 
-    //verify email
+    //route: verify reset password token
+    this.router.patch(
+      "/verifyOtp",
+      UserValidator.verifyResetPasswordOtp(),
+      GlobalMiddleware.checkError,
+      UserController.verifyResetPasswordOtp
+    );
 
+    //verify email
     this.router.patch(
       "/verify-email",
       GlobalMiddleware.auth,

@@ -41,8 +41,6 @@ class ClassRouter {
       FacultyValidator.addFaculty(),
       FacultyController.createFaculty
     );
-
-
   }
 
   putRoutes() {}
