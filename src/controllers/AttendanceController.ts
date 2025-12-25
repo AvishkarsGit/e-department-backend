@@ -14,7 +14,12 @@ export class AttendanceController {
     try {
       const subjects = await Subject.find({});
 
-      if (!subjects) throw new Error("subjects not found!..");
+      if (!subjects || subjects.length === 0) {
+        return res.status(404).json({
+          success: false,
+          message: "No subjects found"
+        });
+      }
 
       return res.json({
         success: true,
@@ -28,7 +33,12 @@ export class AttendanceController {
   static async getPeriods(req, res, next) {
     try {
       const periods = await Period.find({});
-      if (!periods) throw new Error("no periods found");
+      if (!periods || periods.length === 0) {
+        return res.status(404).json({
+          success: false,
+          message: "No periods found"
+        });
+      }
 
       return res.json({
         success: true,
@@ -42,13 +52,23 @@ export class AttendanceController {
   static async fetchStudentsBySubject(req, res, next) {
     try {
       const subject_id = req.params.subject_id;
-      if (!subject_id) throw new Error("subject not provided");
+      if (!subject_id) {
+        return res.status(400).json({
+          success: false,
+          message: "Subject ID is required"
+        });
+      }
 
       // Find subject to get class_id
       const subject = await Subject.findOne({ _id: subject_id }).select(
         "class_id"
       );
-      if (!subject) throw new Error("subject not found");
+      if (!subject) {
+        return res.status(404).json({
+          success: false,
+          message: "Subject not found"
+        });
+      }
 
       const pipeline = [
         // Match students from the same class
@@ -93,7 +113,10 @@ export class AttendanceController {
       const students = await Student.aggregate(pipeline);
 
       if (!students || students.length === 0) {
-        throw new Error("students not found!");
+        return res.status(404).json({
+          success: false,
+          message: "No students found for this subject"
+        });
       }
 
       return res.json({
@@ -113,6 +136,8 @@ export class AttendanceController {
       const { subject_id, faculty_id, period_id, date, attendance } = req.body;
 
       if (!subject_id || !faculty_id || !period_id || !date || !attendance) {
+        await session.abortTransaction();
+        session.endSession();
         return res
           .status(400)
           .json({ success: false, message: "Missing required fields" });
@@ -137,6 +162,8 @@ export class AttendanceController {
       }).session(session);
 
       if (existingSession) {
+        await session.abortTransaction();
+        session.endSession();
         return res.status(400).json({
           success: false,
           message: "Attendance for this period already taken.",
@@ -232,10 +259,20 @@ export class AttendanceController {
     try {
       const class_id = req.params.class_id || req.query.class_id;
 
-      if (!class_id) throw new Error("class must be there");
+      if (!class_id) {
+        return res.status(400).json({
+          success: false,
+          message: "Class ID is required"
+        });
+      }
 
       const subjects = await Subject.find({ class_id });
-      if (!subjects) throw new Error("subjects not found");
+      if (!subjects || subjects.length === 0) {
+        return res.status(404).json({
+          success: false,
+          message: "No subjects found for this class"
+        });
+      }
 
       return res.json({
         success: true,
@@ -544,7 +581,11 @@ export class AttendanceController {
         student_id,
       };
       if (from_date && to_date) {
-        query.date = { $gte: from_date, $lte: to_date };
+        const startDate = new Date(from_date as string);
+        startDate.setHours(0, 0, 0, 0);
+        const endDate = new Date(to_date as string);
+        endDate.setHours(23, 59, 59, 999);
+        query.date = { $gte: startDate, $lte: endDate };
       }
 
       // Execute count and data fetch in parallel
@@ -937,24 +978,27 @@ export class AttendanceController {
         student_id: student?._id,
       });
 
-      const total_classes = summary.length;
+      const total_classes_count = summary.reduce(
+        (acc, curr) => acc + curr.total_classes,
+        0
+      );
       const total_classes_attended = summary.reduce(
         (acc, curr) => acc + curr.attended_classes,
         0
       );
 
       const attendance_percentage =
-        total_classes === 0
+        total_classes_count === 0
           ? 0
-          : (total_classes_attended / total_classes) * 100;
+          : (total_classes_attended / total_classes_count) * 100;
 
       return res.json({
         success: true,
         data: summary,
         summaries: {
-          total_classes,
+          total_classes: total_classes_count,
           total_classes_attended,
-          attendance_percentage,
+          attendance_percentage: Math.round(attendance_percentage * 100) / 100,
         },
       });
     } catch (err) {

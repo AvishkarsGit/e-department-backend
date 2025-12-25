@@ -17,7 +17,7 @@ export class GlobalMiddleware {
     try {
       if (!token) {
         req.errorStatus = 401;
-        next(new Error("User doesn't exist"));
+        return next(new Error("User doesn't exist"));
       }
       const decoded = await JWT.jwtVerify(token);
       req.user = decoded;
@@ -42,7 +42,7 @@ export class GlobalMiddleware {
       if (allowedRoles.includes(userRole)) {
         return next();
       } else {
-        req.errorStatus = 401;
+        req.errorStatus = 403;
         return next(new Error("You are not authorized to perform this action"));
       }
     };

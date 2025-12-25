@@ -360,7 +360,12 @@ export class UserController {
 
       const result = await User.aggregate(pipeline);
 
-      if (!result.length) throw new Error("User not found");
+      if (!result.length) {
+        return res.status(404).json({
+          success: false,
+          message: "User not found"
+        });
+      }
 
       return res.json({
         success: true,
@@ -375,7 +380,10 @@ export class UserController {
     try {
       const user_id = req.query.user_id || req.params.user_id;
       if (!user_id) {
-        throw new Error("user_id is not available");
+        return res.status(400).json({
+          success: false,
+          message: "User ID is required"
+        });
       }
       const user = await User.findOne({
         _id: user_id,
@@ -383,7 +391,10 @@ export class UserController {
         "name email photo phone role created_at email_verified username"
       );
       if (!user) {
-        throw new Error("user not found");
+        return res.status(404).json({
+          success: false,
+          message: "User not found"
+        });
       }
 
       if (user?.role === "faculty") {
@@ -403,7 +414,10 @@ export class UserController {
           "class_id"
         );
         if (!student) {
-          throw new Error("faculty not found");
+          return res.status(404).json({
+            success: false,
+            message: "Student not found"
+          });
         }
         return res.json({
           success: true,
@@ -773,7 +787,6 @@ export class UserController {
         req.body;
       const id = req.user.id;
       if (!id) throw new Error("Id not found");
-      ``;
 
       //find user first
       const user = await User.findOne({ _id: id });
@@ -872,13 +885,21 @@ export class UserController {
   static async checkUserExists(req, res, next) {
     try {
       const { email } = req.query || req.params;
+      if (!email) {
+        return res.status(400).json({
+          success: false,
+          message: "Email is required"
+        });
+      }
       const user = await User.findOne({ email }).select(
         "name email email_verified"
       );
 
-      //return false if user is not exist in the system
       if (!user) {
-        throw new Error("User not found");
+        return res.status(404).json({
+          success: false,
+          message: "User not found"
+        });
       }
 
       return res.json({
@@ -942,10 +963,16 @@ export class UserController {
       console.log("id", id);
       console.log("status", status);
       if (!id) {
-        throw new Error("Id is not available");
+        return res.status(400).json({
+          success: false,
+          message: "ID is required"
+        });
       }
-      if (!status) {
-        throw new Error("Status is not available");
+      if (typeof status === 'undefined') {
+        return res.status(400).json({
+          success: false,
+          message: "Status is required"
+        });
       }
       const user = await User.findOneAndUpdate(
         {

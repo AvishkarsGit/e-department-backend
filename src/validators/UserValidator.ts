@@ -86,7 +86,7 @@ export class UserValidator {
               req.user = user;
               return true;
             } else {
-              return false;
+              throw new Error("User not found with this email");
             }
           });
         }),
@@ -110,7 +110,7 @@ export class UserValidator {
               req.user = user;
               return true;
             } else {
-              return false;
+              throw new Error("User not found with this email");
             }
           });
         }),
@@ -172,6 +172,22 @@ export class UserValidator {
       body("name", "Name is required").isString(),
       body("email", "Email is required").isString(),
       body("phone", "Phone is required").isString(),
+    ];
+  }
+
+  static sendVerificationToken() {
+    return [
+      body("email", "Email is required")
+        .isEmail()
+        .custom((email) => {
+          return User.findOne({ email }).then((user) => {
+            if (user) {
+              return true;
+            } else {
+              throw new Error("User not found with this email");
+            }
+          });
+        }),
     ];
   }
 }

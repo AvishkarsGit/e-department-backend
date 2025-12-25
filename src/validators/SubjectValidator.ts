@@ -110,9 +110,24 @@ export class SubjectValidator {
               req.classId = c._id;
               return true;
             } else {
-              return false;
+              throw new Error("Class not found");
             }
           });
+        }),
+    ];
+  }
+
+  static getSubject() {
+    return [
+      query("id", "Subject ID is required")
+        .isMongoId()
+        .withMessage("Invalid subject ID format")
+        .custom(async (id) => {
+          const subject = await Subject.findById(id).lean();
+          if (!subject) {
+            throw new Error("Subject not found");
+          }
+          return true;
         }),
     ];
   }

@@ -38,6 +38,8 @@ class SubjectRouter {
       "/get-subject",
       GlobalMiddleware.auth,
       GlobalMiddleware.checkRole("admin", "faculty"),
+      SubjectValidator.getSubject(),
+      GlobalMiddleware.checkError,
       SubjectController.getSubject
     );
 

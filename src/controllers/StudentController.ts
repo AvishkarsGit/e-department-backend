@@ -240,8 +240,6 @@ export class StudentController {
         email,
         phone,
         username,
-        class_id,
-        guardian: guardian_data,
         cloud_public_id: public_id,
         ...(hashedPassword && { password: hashedPassword }),
         ...(photo && { photo }),
