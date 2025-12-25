@@ -21,7 +21,7 @@
     "include": [
       "src/**/*.ts",
       "package.json"
-    ],
+, "src/init/dummy.js"    ],
     "exclude": [
       "node_modules"
     ]

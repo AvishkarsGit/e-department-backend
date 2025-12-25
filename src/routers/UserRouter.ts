@@ -112,7 +112,6 @@ class UserRouter {
     //send verification token email again
     this.router.patch(
       "/send/verification/token",
-      GlobalMiddleware.auth,
       UserController.sendVerificationToken
     );
 

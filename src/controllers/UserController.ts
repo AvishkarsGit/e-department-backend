@@ -196,6 +196,7 @@ export class UserController {
       next(error);
     }
   }
+
   static async profile(req, res, next) {
     try {
       const userId = req.user.id;
@@ -969,6 +970,4 @@ export class UserController {
       next(error);
     }
   }
-
-
 }
