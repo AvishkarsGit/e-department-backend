@@ -91,16 +91,16 @@ export class FacultyController {
         // Apply filter (if any)
         ...(regex
           ? [
-              {
-                $match: {
-                  $or: [
-                    { "user.name": regex },
-                    { "user.email": regex },
-                    { "user.username": regex },
-                  ],
-                },
+            {
+              $match: {
+                $or: [
+                  { "user.name": regex },
+                  { "user.email": regex },
+                  { "user.username": regex },
+                ],
               },
-            ]
+            },
+          ]
           : []),
 
         // Populate subjects (only if available)
@@ -169,8 +169,13 @@ export class FacultyController {
       let public_id = user.cloud_public_id;
 
       if (req.file) {
-        const deleted = await Cloudinary.deleteFromCloud(public_id);
-        if (!deleted) throw new Error("Fail to delete Image");
+        if (public_id) {
+          try {
+            await Cloudinary.deleteFromCloud(public_id);
+          } catch (e) {
+            console.error("Fail to delete Image:", e);
+          }
+        }
         const result = await Cloudinary.uploadToCloud(req.file.path);
         if (!result) throw new Error("failed to upload image");
         photo = result?.secure_url;
@@ -246,13 +251,19 @@ export class FacultyController {
       const user = await User.findById(user_id);
       if (!user) throw new Error("user not found!...");
 
-      //check for public_id
-      let public_id = user?.cloud_public_id;
-      if (!public_id) throw new Error("public id not available");
+      // Check if user has an image or public id before allowing deletion
+      if (!user?.cloud_public_id && !user?.photo) {
+        throw new Error("Cannot delete user: No photo or Cloudinary ID found.");
+      }
 
-      //delete image from cloud
-      const isDeleted = await Cloudinary.deleteFromCloud(public_id);
-      if (!isDeleted) throw new Error("failed to delete data");
+      //delete image from cloud if public_id exists
+      if (user?.cloud_public_id) {
+        try {
+          await Cloudinary.deleteFromCloud(user.cloud_public_id);
+        } catch (e) {
+          console.error("failed to delete image from cloud:", e);
+        }
+      }
 
       //delete frist User
       const deletedUser = await User.findOneAndDelete({ _id: user_id });
@@ -314,7 +325,7 @@ export class FacultyController {
 
       return res.json({
         success: true,
-       data: updated,
+        data: updated,
       });
     } catch (error) {
       next(error);

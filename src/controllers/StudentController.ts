@@ -220,10 +220,13 @@ export class StudentController {
       let public_id = user?.cloud_public_id;
 
       if (req?.file) {
-        if (!public_id) throw new Error("public id not available");
-
-        const isDeleted = await Cloudinary.deleteFromCloud(public_id);
-        if (!isDeleted) throw new Error("Failed to delete previous image");
+        if (public_id) {
+          try {
+            await Cloudinary.deleteFromCloud(public_id);
+          } catch (e) {
+            console.error("Failed to delete previous image:", e);
+          }
+        }
 
         const result = await Cloudinary.uploadToCloud(req.file.path);
         if (!result?.secure_url || !result?.public_id) {
@@ -300,13 +303,19 @@ export class StudentController {
       const user = await User.findById(user_id);
       if (!user) throw new Error("user not found!...");
 
-      //check for public_id
-      let public_id = user?.cloud_public_id;
-      if (!public_id) throw new Error("public id not available");
+      // Check if user has an image or public id before allowing deletion
+      if (!user?.cloud_public_id && !user?.photo) {
+        throw new Error("Cannot delete user: No photo or Cloudinary ID found.");
+      }
 
-      //delete image from cloud
-      const isDeleted = await Cloudinary.deleteFromCloud(public_id);
-      if (!isDeleted) throw new Error("failed to delete data");
+      //delete image from cloud if public_id exists
+      if (user?.cloud_public_id) {
+        try {
+          await Cloudinary.deleteFromCloud(user.cloud_public_id);
+        } catch (e) {
+          console.error("Failed to delete image from cloud:", e);
+        }
+      }
 
       //delete first user
       const deletedUser = await User.findOneAndDelete({ _id: user_id });

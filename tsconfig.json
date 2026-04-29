@@ -11,12 +11,16 @@
         "es2017",
         "dom"
       ],
-       // ✅ Add these two lines
+    "typeRoots": [
+      "./node_modules/@types",
+      "./src/types"
+    ],
     "esModuleInterop": true,
     "allowSyntheticDefaultImports": true
     },
     "files": [
-      "./node_modules/@types/node/index.d.ts"
+      "./node_modules/@types/node/index.d.ts",
+      "./src/types/express.d.ts"
     ],
     "include": [
       "src/**/*.ts",

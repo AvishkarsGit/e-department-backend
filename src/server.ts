@@ -1,4 +1,4 @@
-import express from "express";
+import express, { Request, Response, NextFunction } from "express";
 import dotenv from "dotenv";
 dotenv.config(); //config dotenv
 import UserRouter from "./routers/UserRouter";
@@ -21,6 +21,7 @@ import { McpTools } from "./mcp/McpTools";
 import ChatRouter from "./routers/ChatRouter";
 import DashboardRouter from "./routers/DashboardRouter";
 import UploadsRouter from "./routers/UploadsRouter";
+import SeederRouter from "./routers/SeederRouter";
 
 export class Server {
   public app = express();
@@ -65,6 +66,7 @@ export class Server {
     this.app.use("/api/chat", ChatRouter);
     this.app.use("/api/dashboard", DashboardRouter);
     this.app.use("/api/uploads", UploadsRouter);
+    this.app.use("/api/seeder", SeederRouter);
   }
 
   connectMongoDB() {
@@ -102,7 +104,7 @@ export class Server {
   }
 
   handleErrors() {
-    this.app.use((error, req, res, next) => {
+    this.app.use((error: any, req: Request, res: Response, next: NextFunction) => {
       const errorStatus = req.errorStatus || 500;
       res.status(errorStatus).json({
         message: error.message || "Something went wrong. Please try again!",

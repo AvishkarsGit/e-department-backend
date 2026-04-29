@@ -690,9 +690,11 @@ export class UserController {
       if (req?.file) {
         // delete old photo if exists
         if (public_id) {
-          const deleted = await Cloudinary.deleteFromCloud(public_id);
-          if (!deleted)
-            throw new Error("Failed to delete old image from Cloudinary");
+          try {
+            await Cloudinary.deleteFromCloud(public_id);
+          } catch (e) {
+            console.error("Failed to delete old image from Cloudinary:", e);
+          }
         }
 
         // upload new photo
@@ -749,9 +751,19 @@ export class UserController {
       const user = await User.findOne({ _id: id });
       if (!user) throw new Error("User not found");
 
-      //delete image from cloudinary
-      const deleted = await Cloudinary.deleteFromCloud(user?.cloud_public_id);
-      if (!deleted) throw new Error("failed to delete previous image");
+      // Check if user has an image or public id before allowing deletion
+      if (!user?.cloud_public_id && !user?.photo) {
+        throw new Error("Cannot delete user: No photo or Cloudinary ID found.");
+      }
+
+      //delete image from cloudinary if public_id exists
+      if (user?.cloud_public_id) {
+        try {
+          await Cloudinary.deleteFromCloud(user.cloud_public_id);
+        } catch (e) {
+          console.error("Failed to delete image from Cloudinary:", e);
+        }
+      }
 
       const deletedUser = await User.findOneAndDelete({ _id: user?._id });
 
@@ -784,12 +796,14 @@ export class UserController {
       //check if photo is selected
       let photo;
       if (req.file) {
-        //check if public id is available
-        if (!public_id) throw new Error("You have no public id");
-
-        //first delete previous photo from cloudinary
-        const deleted = await Cloudinary.deleteFromCloud(public_id);
-        if (!deleted) throw new Error("Failed to delete image from cloud");
+        //first delete previous photo from cloudinary if public_id exists
+        if (public_id) {
+          try {
+            await Cloudinary.deleteFromCloud(public_id);
+          } catch (e) {
+            console.error("Failed to delete image from cloud:", e);
+          }
+        }
 
         //upload to the cloud
         const result = await Cloudinary.uploadToCloud(req.file.path);
