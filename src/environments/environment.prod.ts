@@ -1,3 +1,5 @@
+import dotenv from "dotenv";
+dotenv.config();
 import { Environment } from "./environment";
 import { requireEnv } from "./environment.config";
 

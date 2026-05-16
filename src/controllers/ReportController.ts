@@ -44,8 +44,8 @@ export class ReportController {
 
       const numbers_data = [
         { name: "Avishkar Kumbhar", mobile_num: "7841961074" },
-        { name: "Rushikesh Gaikwad", mobile_num: "9028641866" },
-        { name: "Dipali Kumbhar", mobile_num: "9921751084" },
+        // { name: "Rushikesh Gaikwad", mobile_num: "9028641866" },
+        // { name: "Dipali Kumbhar", mobile_num: "9921751084" },
       ];
 
       // Prepare all messages

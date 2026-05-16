@@ -1,5 +1,7 @@
+import dotenv from "dotenv";
+dotenv.config();
 import { Environment } from "./environment";
-import { requireEnv } from "./environment.config";
+import { requireEnv } from "./environment.config"
 export const DevEnvironment: Environment = {
   db_uri: requireEnv('DEV_DB_URI'),
   sendgrid_api: requireEnv('DEV_SENDGRID_API'),
