@@ -14,6 +14,8 @@ export interface Environment {
   aws_secret_access_key: string;
   bucket_name: string;
   aws_region: string;
+  whatsapp_access_token: string;
+  whatsapp_phone_number_id: string;
 }
 
 export function getEnvironmentVariables() {
