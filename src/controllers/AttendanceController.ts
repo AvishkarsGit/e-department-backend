@@ -1,0 +1,963 @@
+import mongoose from "mongoose";
+import Attendance from "../models/Attendance";
+import AttendanceSummary from "../models/AttendanceSummary";
+import Class from "../models/Class";
+import ClassSession from "../models/ClassSession";
+import Period from "../models/Period";
+import Student from "../models/Student";
+import Subject from "../models/Subject";
+import * as moment from "moment";
+import User from "../models/User";
+
+export class AttendanceController {
+  static async getSubjects(req, res, next) {
+    try {
+      const subjects = await Subject.find({});
+
+      if (!subjects) throw new Error("subjects not found!..");
+
+      return res.json({
+        success: true,
+        data: subjects,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  static async getPeriods(req, res, next) {
+    try {
+      const periods = await Period.find({});
+      if (!periods) throw new Error("no periods found");
+
+      return res.json({
+        success: true,
+        data: periods,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  static async fetchStudentsBySubject(req, res, next) {
+    try {
+      const subject_id = req.params.subject_id;
+      if (!subject_id) throw new Error("subject not provided");
+
+      // Find subject to get class_id
+      const subject = await Subject.findOne({ _id: subject_id }).select(
+        "class_id",
+      );
+      if (!subject) throw new Error("subject not found");
+
+      const pipeline = [
+        // Match students from the same class
+        {
+          $match: { class_id: subject.class_id },
+        },
+
+        // Join user
+        {
+          $lookup: {
+            from: "users",
+            localField: "user_id",
+            foreignField: "_id",
+            as: "user",
+          },
+        },
+        { $unwind: "$user" },
+
+        // Join class
+        {
+          $lookup: {
+            from: "classes",
+            localField: "class_id",
+            foreignField: "_id",
+            as: "classData",
+          },
+        },
+        { $unwind: "$classData" },
+
+        // Join department
+        {
+          $lookup: {
+            from: "departments",
+            localField: "classData.department_id",
+            foreignField: "_id",
+            as: "department",
+          },
+        },
+        { $unwind: "$department" },
+      ];
+
+      const students = await Student.aggregate(pipeline);
+
+      if (!students || students.length === 0) {
+        throw new Error("students not found!");
+      }
+
+      return res.json({
+        success: true,
+        data: students,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  static async saveAttendance(req, res, next) {
+    try {
+      const { subject_id, faculty_id, period_id, date, attendance } = req.body;
+
+      if (!subject_id || !faculty_id || !period_id || !date || !attendance) {
+        return res
+          .status(400)
+          .json({ success: false, message: "Missing required fields" });
+      }
+
+      const attendanceArray =
+        typeof attendance === "string" ? JSON.parse(attendance) : attendance;
+
+      const attendanceDate = new Date(date);
+      attendanceDate.setHours(0, 0, 0, 0);
+
+      // Get class from subject
+      const subject = await Subject.findById(subject_id).select("class_id");
+      if (!subject) {
+        return res.status(404).json({
+          success: false,
+          message: "Subject not found",
+        });
+      }
+
+      const class_id = subject.class_id;
+
+      // Prevent duplicate attendance
+      const existingSession = await ClassSession.findOne({
+        class_id,
+        period: period_id,
+        date: attendanceDate,
+      });
+
+      if (existingSession) {
+        return res.status(400).json({
+          success: false,
+          message: "Attendance for this period already taken.",
+        });
+      }
+
+      // Create session
+      const newSession = await ClassSession.create({
+        class_id,
+        subject_id,
+        faculty_id,
+        period: period_id,
+        date: attendanceDate,
+      });
+
+      const sessionId = newSession._id;
+
+      // Insert attendance records
+      const attendanceDocs = attendanceArray.map((att) => ({
+        session_id: sessionId,
+        student_id: att.student_id,
+        class_id,
+        subject_id,
+        date: attendanceDate,
+        status: att.status,
+      }));
+
+      await Attendance.insertMany(attendanceDocs);
+
+      // Update summaries
+      const bulkOps = attendanceArray.map((att) => ({
+        updateOne: {
+          filter: {
+            student_id: att.student_id,
+            subject_id,
+            class_id,
+          },
+          update: {
+            $inc: {
+              total_classes: 1,
+              attended_classes: att.status === "present" ? 1 : 0,
+            },
+            $set: {
+              last_updated: new Date(),
+            },
+          },
+          upsert: true,
+        },
+      }));
+
+      if (bulkOps.length > 0) {
+        await AttendanceSummary.bulkWrite(bulkOps);
+      }
+
+      // Recalculate attendance percentage
+      await AttendanceSummary.updateMany({ class_id, subject_id }, [
+        {
+          $set: {
+            attendance_percentage: {
+              $cond: [
+                { $eq: ["$total_classes", 0] },
+                0,
+                {
+                  $multiply: [
+                    {
+                      $divide: ["$attended_classes", "$total_classes"],
+                    },
+                    100,
+                  ],
+                },
+              ],
+            },
+          },
+        },
+      ]);
+
+      return res.status(200).json({
+        success: true,
+        data: {
+          message: "Attendance saved successfully.",
+        },
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+  static async fetchSubjectsByClass(req, res, next) {
+    try {
+      const class_id = req.params.class_id || req.query.class_id;
+
+      if (!class_id) throw new Error("class must be there");
+
+      const subjects = await Subject.find({ class_id });
+      if (!subjects) throw new Error("subjects not found");
+
+      return res.json({
+        success: true,
+        data: subjects,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  static async fetchAttendanceSummary(req, res, next) {
+    try {
+      const {
+        class_id,
+        subject_id,
+        from_date,
+        to_date,
+        page = 1, // Default to page 1
+        limit = 10, // Default to 10 results per page
+        search,
+        criteria,
+      } = req.query;
+      if (!class_id) {
+        return res
+          .status(400)
+          .json({ success: false, message: "class_id is required." });
+      }
+
+      const isAllSubjects =
+        subject_id?.toString().toLowerCase() === "all" || !subject_id;
+      const classObjectId = new mongoose.Types.ObjectId(String(class_id));
+      const limitInt = parseInt(String(limit), 10);
+      const skipInt = (parseInt(String(page), 10) - 1) * limitInt;
+
+      // 1. Initial Match Filter for Class and Date Range
+      const matchFilter: mongoose.FilterQuery<typeof Attendance> = {
+        class_id: classObjectId,
+      };
+
+      // Filter by subject if a specific subject is selected
+      if (!isAllSubjects) {
+        matchFilter.subject_id = new mongoose.Types.ObjectId(
+          String(subject_id),
+        );
+      }
+
+      // Date Range Filter (Ensuring correct Date object creation)
+      if (from_date || to_date) {
+        const dateFilter: Record<string, Date> = {};
+
+        if (from_date) {
+          // Set to beginning of the day (00:00:00.000) for inclusive start
+          const startDateObj = new Date(String(from_date));
+          startDateObj.setHours(0, 0, 0, 0);
+          dateFilter.$gte = startDateObj;
+        }
+
+        if (to_date) {
+          // Set to end of the day (23:59:59.999) for inclusive end
+          const endDateObj = new Date(String(to_date));
+          endDateObj.setHours(23, 59, 59, 999);
+          dateFilter.$lte = endDateObj;
+        }
+        matchFilter.date = dateFilter;
+      }
+
+      // 2. Get Total Count for Pagination (Count unique students)
+      const countPipeline: mongoose.PipelineStage[] = [
+        { $match: matchFilter },
+        { $group: { _id: "$student_id" } }, // Group by student_id to count unique students
+        { $count: "totalDocuments" },
+      ];
+
+      const countResult = await Attendance.aggregate(countPipeline);
+      const totalDocuments =
+        countResult.length > 0 ? countResult[0].totalDocuments : 0;
+      const totalPages = Math.ceil(totalDocuments / limitInt);
+
+      // 3. Main Aggregation Pipeline
+      const summaryPipeline: any[] = [
+        // Stage 1: Filter attendance records
+        { $match: matchFilter },
+
+        // Stage 2: Group by student_id and subject_id for attendance counts
+        {
+          $group: {
+            _id: { student_id: "$student_id", subject_id: "$subject_id" },
+            class_id: { $first: "$class_id" }, // ✅ preserve class_id here
+            total_classes_attended: { $sum: 1 },
+            present_classes: {
+              $sum: { $cond: [{ $eq: ["$status", "present"] }, 1, 0] },
+            },
+          },
+        },
+
+        // Stage 3: Lookup to get Subject Name
+        {
+          $lookup: {
+            from: "subjects", // Subject collection name
+            localField: "_id.subject_id",
+            foreignField: "_id",
+            as: "subject",
+          },
+        },
+        { $unwind: "$subject" },
+        { $addFields: { subject_name: "$subject.name" } },
+        { $project: { subject: 0 } },
+
+        // Stage 4: Re-Group by student_id for overall summary
+        {
+          $group: {
+            _id: "$_id.student_id",
+            class_id: { $first: "$class_id" }, // <-- carry forward class_id
+            total_classes: { $sum: "$total_classes_attended" },
+            attended_classes: { $sum: "$present_classes" },
+            subjects_summary: {
+              $push: {
+                subject_id: "$_id.subject_id",
+                subject_name: "$subject_name",
+                total_classes: "$total_classes_attended",
+                attended_classes: "$present_classes",
+              },
+            },
+            specific_subject_id: { $first: "$_id.subject_id" }, // <-- keep subject_id
+            // Capture the specific subject name for non-all queries
+            specific_subject_name: {
+              $first: { $cond: [isAllSubjects, "$$REMOVE", "$subject_name"] },
+            },
+          },
+        },
+
+        // Stage 5: Calculate Percentage
+        {
+          $addFields: {
+            attendance_percentage: {
+              $cond: [
+                { $eq: ["$total_classes", 0] },
+                0,
+                {
+                  $multiply: [
+                    { $divide: ["$attended_classes", "$total_classes"] },
+                    100,
+                  ],
+                },
+              ],
+            },
+          },
+        },
+
+        //Stage 5.1: filter records criteria based
+        ...(criteria && parseInt(criteria) > 0
+          ? [
+              {
+                $match: {
+                  attendance_percentage: {
+                    $lte: parseInt(criteria),
+                  },
+                },
+              },
+            ]
+          : []),
+
+        // Stage 6: Lookup Student Details (for rollNo and user_id)
+        {
+          $lookup: {
+            from: "students", // Student collection name
+            localField: "_id",
+            foreignField: "_id",
+            as: "student",
+          },
+        },
+        { $unwind: "$student" },
+
+        // Stage 7: Lookup User Details (for name)
+        {
+          $lookup: {
+            from: "users", // User collection name
+            localField: "student.user_id", // Assumes student document has user_id
+            foreignField: "_id",
+            as: "user",
+          },
+        },
+        { $unwind: "$user" }, // Assumes every student has a user record
+
+        //stage 8.Optional search filter on name or rollNo
+        ...(search
+          ? [
+              {
+                $match: {
+                  $or: [
+                    { "user.name": { $regex: search, $options: "i" } },
+                    { "student.rollNo": { $regex: search, $options: "i" } },
+                  ],
+                },
+              },
+            ]
+          : []),
+
+        // Stage 9: Extract Name and Roll No
+        {
+          $addFields: {
+            student_name: "$user.name",
+            student_rollNo: "$student.rollNo",
+          },
+        },
+
+        // Stage 9: Sort and Pagination
+        { $sort: { student_rollNo: 1 } },
+        { $skip: skipInt },
+        { $limit: limitInt },
+
+        // Stage 10: Final Projection
+        {
+          $project: {
+            _id: 0,
+            class_id: 1, // <-- added
+            subject_id: {
+              $cond: [isAllSubjects, "$$REMOVE", "$specific_subject_id"],
+            }, // <-- added
+
+            student_id: "$_id",
+            student_name: 1,
+            student_rollNo: 1,
+            total_classes: 1,
+            attended_classes: 1,
+            attendance_percentage: { $round: ["$attendance_percentage", 2] },
+            // Include subject_name at top-level for specific subject query
+            subject_name: {
+              $cond: [isAllSubjects, "$$REMOVE", "$specific_subject_name"],
+            },
+            subjects_summary: {
+              // Include subject breakdown array for 'all subjects' query
+              $cond: [isAllSubjects, "$subjects_summary", "$$REMOVE"],
+            },
+          },
+        },
+      ];
+
+      const summaries = await Attendance.aggregate(summaryPipeline);
+
+      if (!summaries || summaries.length === 0) {
+        return res.status(404).json({
+          success: false,
+          message: "No attendance summary found in the specified range.",
+        });
+      }
+
+      return res.json({
+        success: true,
+        pagination: {
+          page: parseInt(String(page), 10),
+          limit: limitInt,
+          totalPages: totalPages,
+          totalResults: totalDocuments,
+        },
+        data: summaries,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  static async fetchAllClasses(req, res, next) {
+    try {
+      const pipeline = [
+        {
+          $lookup: {
+            from: "departments", // collection name in MongoDB (lowercase + plural usually)
+            localField: "department_id",
+            foreignField: "_id",
+            as: "department",
+          },
+        },
+        { $unwind: "$department" },
+      ];
+
+      const result = await Class.aggregate(pipeline);
+      return res.json({
+        success: true,
+        data: result,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  static async getStudentAttendance(req, res, next) {
+    try {
+      const {
+        subject_id,
+        class_id,
+        student_id,
+        from_date,
+        to_date,
+        page = 1,
+        size = 20,
+      } = req.query;
+
+      //check if date is present or not
+
+      const pageNum = Math.max(1, parseInt(page));
+      const limitNum = Math.max(1, parseInt(size));
+      // Base query
+      const query: any = {
+        subject_id,
+        class_id,
+        student_id,
+      };
+      if (from_date && to_date) {
+        query.date = { $gte: from_date, $lte: to_date };
+      }
+
+      // Execute count and data fetch in parallel
+      const [attendances, totalRecords] = await Promise.all([
+        Attendance.find(query)
+          .select("session_id date status")
+          .populate({
+            path: "session_id",
+            select: "period",
+            populate: {
+              path: "period",
+              select: "period_text",
+            },
+          })
+          .sort({ date: -1 }) // newest first
+          .skip((pageNum - 1) * limitNum)
+          .limit(limitNum)
+          .lean(),
+        Attendance.countDocuments(query),
+      ]);
+
+      return res.json({
+        success: true,
+        pagination: {
+          totalRecords,
+          totalPages: Math.ceil(totalRecords / limitNum),
+          currentPage: pageNum,
+          pageSize: limitNum,
+          hasNextPage: pageNum * limitNum < totalRecords,
+        },
+        data: attendances,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  static async fetchAttendanceSummaryExcel(req, res, next) {
+    try {
+      const { class_id, subject_id } = req.query || req.params;
+
+      const classObjectId = new mongoose.Types.ObjectId(class_id);
+      const subjectObjectId = new mongoose.Types.ObjectId(subject_id);
+
+      const attendanceSummary = await Attendance.aggregate([
+        // Stage 1: Match class and subject
+        {
+          $match: {
+            class_id: classObjectId,
+            subject_id: subjectObjectId,
+          },
+        },
+
+        // Stage 2: Group all records by student and collect date-wise attendance
+        {
+          $group: {
+            _id: "$student_id",
+            records: {
+              $push: {
+                date: "$date",
+                status: "$status",
+              },
+            },
+            total_present: {
+              $sum: { $cond: [{ $eq: ["$status", "present"] }, 1, 0] },
+            },
+            total_absent: {
+              $sum: { $cond: [{ $eq: ["$status", "absent"] }, 1, 0] },
+            },
+            total_classes: { $sum: 1 },
+          },
+        },
+
+        // Stage 3: Lookup student details
+        {
+          $lookup: {
+            from: "students",
+            localField: "_id",
+            foreignField: "_id",
+            as: "student",
+          },
+        },
+        { $unwind: "$student" },
+
+        // Stage 4: Lookup user details (to get student name)
+        {
+          $lookup: {
+            from: "users",
+            localField: "student.user_id",
+            foreignField: "_id",
+            as: "user",
+          },
+        },
+        { $unwind: "$user" },
+
+        // Stage 5: Lookup subject name
+        {
+          $lookup: {
+            from: "subjects",
+            localField: "student.subject_id",
+            foreignField: "_id",
+            as: "subject",
+          },
+        },
+
+        // Stage 6: Final projection
+        {
+          $project: {
+            _id: 0,
+            student_id: "$_id",
+            student_name: "$user.name",
+            roll_no: "$student.rollNo",
+            total_classes: 1,
+            total_present: 1,
+            total_absent: 1,
+            records: {
+              $map: {
+                input: "$records",
+                as: "rec",
+                in: {
+                  date: "$$rec.date",
+                  status: "$$rec.status",
+                },
+              },
+            },
+          },
+        },
+
+        // Stage 7: Sort by roll number
+        { $sort: { roll_no: 1 } },
+      ]);
+
+      if (!attendanceSummary.length) {
+        return res.status(404).json({
+          success: false,
+          message: "No attendance found for this class and subject.",
+        });
+      }
+
+      return res.json({
+        success: true,
+        data: attendanceSummary,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  static async fetchAllAttendanceDate(req, res, next) {
+    try {
+      const { class_id, subject_id } = req.query || req.params;
+      const dates = await Attendance.find({ class_id, subject_id })
+        .select("date -_id")
+        .lean();
+
+      if (!dates) {
+        return res.status(404).json({
+          success: false,
+          message: "No dates found for this class and subject.",
+        });
+      }
+
+      //convert dates to dd-mm-yyyy format
+      // ✅ Format each record to DD-MM-YYYY
+      const formattedDates = dates.map((record, index) => ({
+        id: index + 1, // helps to differentiate same-day multiple lectures
+        date: moment.utc(record.date).format("DD-MM-YYYY"),
+      }));
+
+      return res.json({
+        success: true,
+        data: formattedDates,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  static async studentAttendance(req, res, next) {
+    try {
+      const {
+        class_id,
+        subject,
+        from_date,
+        to_date,
+        page = 1,
+        limit = 10,
+      } = req.query;
+
+      const student = await Student.findOne({ user_id: req.user.id })
+        .select("_id")
+        .lean();
+      const student_id = student?._id;
+
+      if (!student_id || !class_id) {
+        return res.status(400).json({
+          success: false,
+          message: "student_id and class_id are required.",
+        });
+      }
+
+      // --- If no valid subject is passed, return empty response ---
+      if (
+        !subject ||
+        typeof subject !== "string" ||
+        subject.trim() === "" ||
+        !mongoose.Types.ObjectId.isValid(subject)
+      ) {
+        return res.json({
+          success: true,
+          pagination: {
+            page: parseInt(String(page), 10),
+            limit: parseInt(String(limit), 10),
+            totalPages: 0,
+            totalResults: 0,
+          },
+          summary: {
+            total_classes: 0,
+            attended_classes: 0,
+            attendance_percentage: 0,
+          },
+          data: [],
+        });
+      }
+
+      // --- Pagination setup ---
+      const limitInt = Math.max(parseInt(String(limit), 10) || 10, 1);
+      const pageInt = Math.max(parseInt(String(page), 10) || 1, 1);
+      const skipInt = (pageInt - 1) * limitInt;
+
+      const studentObjectId = new mongoose.Types.ObjectId(student_id);
+      const classObjectId = new mongoose.Types.ObjectId(String(class_id));
+      const subjectObjectId = new mongoose.Types.ObjectId(subject);
+
+      // --- Build filter ---
+      const matchFilter: any = {
+        class_id: classObjectId,
+        student_id: studentObjectId,
+        subject_id: subjectObjectId,
+      };
+
+      if (from_date || to_date) {
+        matchFilter.date = {};
+        if (from_date) {
+          const startDateObj = new Date(String(from_date));
+          startDateObj.setHours(0, 0, 0, 0);
+          matchFilter.date.$gte = startDateObj;
+        }
+        if (to_date) {
+          const endDateObj = new Date(String(to_date));
+          endDateObj.setHours(23, 59, 59, 999);
+          matchFilter.date.$lte = endDateObj;
+        }
+      }
+
+      // --- Total count ---
+      const totalCount = await Attendance.countDocuments(matchFilter);
+      const totalPages = Math.ceil(totalCount / limitInt);
+
+      // --- Aggregation ---
+      const pipeline: any[] = [
+        { $match: matchFilter },
+
+        // 🔹 Lookup Subject
+        {
+          $lookup: {
+            from: "subjects",
+            localField: "subject_id",
+            foreignField: "_id",
+            as: "subject",
+          },
+        },
+        { $unwind: { path: "$subject", preserveNullAndEmptyArrays: true } },
+
+        // 🔹 Lookup ClassSession
+        {
+          $lookup: {
+            from: "classsessions", // collection name (pluralized from "ClassSession")
+            localField: "session_id",
+            foreignField: "_id",
+            as: "session",
+          },
+        },
+        { $unwind: { path: "$session", preserveNullAndEmptyArrays: true } },
+
+        // 🔹 Lookup Period (inside ClassSession)
+        {
+          $lookup: {
+            from: "periods",
+            localField: "session.period",
+            foreignField: "_id",
+            as: "period",
+          },
+        },
+        { $unwind: { path: "$period", preserveNullAndEmptyArrays: true } },
+
+        // 🔹 Sort + Paginate
+        { $sort: { date: 1 } },
+        { $skip: skipInt },
+        { $limit: limitInt },
+
+        // 🔹 Final Projection
+        {
+          $project: {
+            _id: 0,
+            date: 1,
+            status: 1,
+            subject_id: 1,
+            subject_name: "$subject.name",
+            period_id: "$period._id",
+            period_text: "$period.period_text",
+            period_number: "$period.period",
+            start_time: "$period.start_time",
+            ending_time: "$period.ending_time",
+          },
+        },
+      ];
+
+      const records = await Attendance.aggregate(pipeline);
+
+      // --- Summary stats ---
+      const summaryPipeline = [
+        { $match: matchFilter },
+        {
+          $group: {
+            _id: null,
+            total_classes: { $sum: 1 },
+            attended_classes: {
+              $sum: { $cond: [{ $eq: ["$status", "present"] }, 1, 0] },
+            },
+          },
+        },
+        {
+          $addFields: {
+            attendance_percentage: {
+              $cond: [
+                { $eq: ["$total_classes", 0] },
+                0,
+                {
+                  $multiply: [
+                    { $divide: ["$attended_classes", "$total_classes"] },
+                    100,
+                  ],
+                },
+              ],
+            },
+          },
+        },
+        {
+          $project: {
+            _id: 0,
+            total_classes: 1,
+            attended_classes: 1,
+            attendance_percentage: { $round: ["$attendance_percentage", 2] },
+          },
+        },
+      ];
+
+      const summaryResult = await Attendance.aggregate(summaryPipeline);
+      const summary =
+        summaryResult.length > 0
+          ? summaryResult[0]
+          : { total_classes: 0, attended_classes: 0, attendance_percentage: 0 };
+
+      return res.json({
+        success: true,
+        pagination: {
+          page: pageInt,
+          limit: limitInt,
+          totalPages,
+          totalResults: totalCount,
+        },
+        summary,
+        data: records,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  static async fetchAllAttendance(req, res, next) {
+    try {
+      const userId = req.user.id;
+      const student = await Student.findOne({ user_id: userId })
+        .select("_id")
+        .lean();
+      if (!student) throw new Error("Student not found");
+
+      const summary = await AttendanceSummary.find({
+        student_id: student?._id,
+      });
+
+      const total_classes = summary.length;
+      const total_classes_attended = summary.reduce(
+        (acc, curr) => acc + curr.attended_classes,
+        0,
+      );
+
+      const attendance_percentage =
+        total_classes === 0
+          ? 0
+          : (total_classes_attended / total_classes) * 100;
+
+      return res.json({
+        success: true,
+        data: summary,
+        summaries: {
+          total_classes,
+          total_classes_attended,
+          attendance_percentage,
+        },
+      });
+    } catch (err) {
+      next(err);
+    }
+  }
+}
