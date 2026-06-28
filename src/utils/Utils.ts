@@ -4,11 +4,13 @@ const storageOptions = Multer.diskStorage({
   destination: (req, file, cb) => {
     let folder = "./src/uploads/photo"; // default
     if (file.mimetype.includes("spreadsheet")) folder = "./src/uploads/excel";
+
     cb(null, folder);
   },
   filename: (req, file, cb) => {
     const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
     cb(null, uniqueSuffix + file.originalname);
+
   },
 });
 

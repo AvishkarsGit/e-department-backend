@@ -47,7 +47,7 @@ class UploadsRouter {
     );
   }
 
-  putRoutes() {}
+  putRoutes() { }
 
   patchRoutes() {
     //update material

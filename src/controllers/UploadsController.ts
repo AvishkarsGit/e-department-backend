@@ -2,6 +2,9 @@ import Student from "../models/Student";
 import Subject from "../models/Subject";
 import Uploads from "../models/Uploads";
 import { AWS } from "../utils/AWS";
+import fs from "fs";
+
+
 export class UploadsController {
   static async uploadMaterial(req, res, next) {
     try {
@@ -13,7 +16,6 @@ export class UploadsController {
       if (req.file) {
         const result = await AWS.uploadToS3(req.file.path, "material");
 
-        //get url and public id
         secure_url = result?.secure_url;
         public_id = result?.public_id;
       }
@@ -55,7 +57,7 @@ export class UploadsController {
       let current_page = parseInt(req.query.page) || 1;
 
       const filter = req.query.filter || "";
-      let query:any = {};
+      let query: any = {};
 
       // ------------------------------------------
       // 1️⃣ LIMIT MATERIALS IF USER IS A STUDENT

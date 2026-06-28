@@ -36,9 +36,8 @@ export class AWS {
 
       await s3.send(new PutObjectCommand(params));
       // generate URL
-      const url = `https://${getEnvironmentVariables().bucket_name}.s3.${
-        getEnvironmentVariables().aws_region
-      }.amazonaws.com/${uploadKey}`;
+      const url = `https://${getEnvironmentVariables().bucket_name}.s3.${getEnvironmentVariables().aws_region
+        }.amazonaws.com/${uploadKey}`;
 
       if (url && uploadKey) {
         //successfully upload file to cloudinary, unlink/delete the local files
