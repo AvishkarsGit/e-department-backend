@@ -2,7 +2,7 @@ import axios from "axios";
 import { getEnvironmentVariables } from "../environments/environment";
 export class Whatsapp {
 
-  static async createMessage(message: string, to:string) {
+  static async createMessage(message: string, to: string) {
     try {
       const response = await axios({
         method: "POST",
@@ -21,7 +21,7 @@ export class Whatsapp {
         },
       });
       return response.data;
-    } catch (error:any) {
+    } catch (error: any) {
       const apiError = error.response?.data?.error?.message || error.message;
       throw new Error(apiError);
     }

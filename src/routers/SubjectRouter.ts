@@ -43,8 +43,8 @@ class SubjectRouter {
 
     this.router.get(
       "/fetchClassId",
-      GlobalMiddleware.auth,
-      GlobalMiddleware.checkRole("admin", "faculty"),
+      //lobalMiddleware.auth,
+      // GlobalMiddleware.checkRole("admin", "faculty"),
       SubjectValidator.fetchClassId(),
       GlobalMiddleware.checkError,
       SubjectController.fetchClassId
@@ -81,7 +81,7 @@ class SubjectRouter {
       SubjectController.deleteSubject
     );
   }
-  putRoutes() {}
+  putRoutes() { }
 }
 
 export default new SubjectRouter().router;

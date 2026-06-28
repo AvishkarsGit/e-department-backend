@@ -85,20 +85,20 @@ class UserRouter {
       "/update_profile",
       GlobalMiddleware.auth,
       new Utils().multer.single("photo"),
-      UserValidator.updateProfile(),
-      GlobalMiddleware.checkError,
+      // UserValidator.updateProfile(),
+      // GlobalMiddleware.checkError,
       UserController.updateProfile
     );
     //accept user
     this.router.post(
       "/accept-user",
       GlobalMiddleware.auth,
-      GlobalMiddleware.checkRole("admin"),
+      GlobalMiddleware.checkRole("admin", "faculty"),
       UserController.acceptUser
     );
   }
 
-  putRoutes() {}
+  putRoutes() { }
 
   patchRoutes() {
     //send reset password token
@@ -126,7 +126,7 @@ class UserRouter {
     //verify email
     this.router.patch(
       "/verify-email",
-      GlobalMiddleware.auth,
+      //GlobalMiddleware.auth,
       UserValidator.verifyEmail(),
       GlobalMiddleware.checkError,
       UserController.verifyEmail

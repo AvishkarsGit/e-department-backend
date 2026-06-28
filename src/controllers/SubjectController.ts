@@ -23,9 +23,9 @@ export class SubjectController {
         throw new Error("class not found");
       }
       // 4️⃣ Rename populated field for cleaner structure
-      const classDataObj = classData as any;
+      const classDataObj = JSON.parse(JSON.stringify(classData));
       classDataObj.department = classDataObj.department_id;
-      delete classData.department_id;
+      delete classDataObj.department_id;
       return res.json({
         success: true,
         data: { subject, classData: classDataObj },
@@ -49,7 +49,7 @@ export class SubjectController {
       const regex = filter ? new RegExp(filter, "i") : null;
 
       // Common match stage for search filter
-      const matchStage: any = regex
+      const matchStage: Record<string, unknown> = regex
         ? {
             $or: [{ name: regex }, { code: regex }],
           }
@@ -197,9 +197,9 @@ export class SubjectController {
         throw new Error("class not found");
       }
       // 4️⃣ Rename populated field for cleaner structure
-      const classDataObj = classData as any;
+      const classDataObj = JSON.parse(JSON.stringify(classData));
       classDataObj.department = classDataObj.department_id;
-      delete classData.department_id;
+      delete classDataObj.department_id;
 
       return res.json({
         success: true,

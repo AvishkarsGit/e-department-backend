@@ -39,9 +39,9 @@ class ReportRouter {
       ReportController.sendBulkMessage
     );
   }
-  patchRoutes() {}
-  putRoutes() {}
-  deleteRoutes() {}
+  patchRoutes() { }
+  putRoutes() { }
+  deleteRoutes() { }
 }
 
 export default new ReportRouter().router;

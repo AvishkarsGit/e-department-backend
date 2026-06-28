@@ -197,180 +197,213 @@ export class UserController {
     }
   }
 
-  static async profile(req, res, next) {
-    try {
-      const userId = req.user.id;
+ static async profile(req, res, next) {
+  try {
+    const userId = req.user.id;
 
-      const pipeline = [
-        {
-          $match: { _id: new mongoose.Types.ObjectId(userId) },
-        },
+    const pipeline = [
+      {
+        $match: { _id: new mongoose.Types.ObjectId(userId) },
+      },
 
-        // Lookup Faculty details (for subjects + guardians)
-        {
-          $lookup: {
-            from: "faculties",
-            localField: "_id",
-            foreignField: "user_id",
-            as: "facultyData",
-            pipeline: [
-              {
-                $lookup: {
-                  from: "subjects",
-                  localField: "subjects",
-                  foreignField: "_id",
-                  as: "subjects",
-                  pipeline: [
-                    {
-                      $project: {
-                        _id: 1,
-                        name: 1,
-                        code: 1,
-                      },
-                    },
-                  ],
-                },
-              },
-              {
-                $project: {
-                  _id: 0,
-                  subjects: 1,
-                  guardian: 1,
-                },
-              },
-            ],
-          },
-        },
-
-        // Lookup Student details (with class + department)
-        {
-          $lookup: {
-            from: "students",
-            localField: "_id",
-            foreignField: "user_id",
-            as: "studentData",
-            pipeline: [
-              {
-                $lookup: {
-                  from: "classes",
-                  localField: "class_id",
-                  foreignField: "_id",
-                  as: "classData",
-                  pipeline: [
-                    {
-                      $lookup: {
-                        from: "departments",
-                        localField: "department_id",
-                        foreignField: "_id",
-                        as: "department",
-                        pipeline: [
-                          {
-                            $project: {
-                              _id: 1,
-                              name: 1,
-                              code: 1,
-                            },
-                          },
-                        ],
-                      },
-                    },
-                    {
-                      $project: {
-                        _id: 1,
-                        year: 1,
-                        semester: 1,
-                        department: { $arrayElemAt: ["$department", 0] },
-                      },
-                    },
-                  ],
-                },
-              },
-              {
-                $project: {
-                  _id: 0,
-                  guardian: 1,
-                  rollNo: 1, // ✅ Include rollNo here
-                  classData: { $arrayElemAt: ["$classData", 0] },
-                },
-              },
-            ],
-          },
-        },
-
-        // Final projection
-        {
-          $project: {
-            _id: 1,
-            name: 1,
-            email: 1,
-            phone: 1,
-            photo: 1,
-            username: 1,
-            account_status: 1,
-            role: 1,
-            created_at: 1,
-            email_verified: 1,
-
-            subjects: {
-              $cond: {
-                if: {
-                  $or: [
-                    { $eq: ["$role", "faculty"] },
-                    { $eq: ["$role", "admin"] },
-                  ],
-                },
-                then: { $arrayElemAt: ["$facultyData.subjects", 0] },
-                else: [],
+      // ================= FACULTY =================
+      {
+        $lookup: {
+          from: "faculties",
+          let: { userId: "$_id" },
+          pipeline: [
+            {
+              $match: {
+                $expr: { $eq: ["$user_id", "$$userId"] },
               },
             },
 
-            guardian: {
-              $cond: {
-                if: { $eq: ["$role", "faculty"] },
-                then: { $arrayElemAt: ["$facultyData.guardian", 0] },
-                else: {
-                  $cond: {
-                    if: { $eq: ["$role", "student"] },
-                    then: { $arrayElemAt: ["$studentData.guardian", 0] },
-                    else: [],
+            {
+              $lookup: {
+                from: "subjects",
+                let: { subjectIds: "$subjects" },
+                pipeline: [
+                  {
+                    $match: {
+                      $expr: { $in: ["$_id", "$$subjectIds"] },
+                    },
                   },
+                  {
+                    $project: {
+                      _id: 1,
+                      name: 1,
+                      code: 1,
+                    },
+                  },
+                ],
+                as: "subjects",
+              },
+            },
+
+            {
+              $project: {
+                _id: 0,
+                subjects: 1,
+                guardian: 1,
+              },
+            },
+          ],
+          as: "facultyData",
+        },
+      },
+
+      // ================= STUDENT =================
+      {
+        $lookup: {
+          from: "students",
+          let: { userId: "$_id" },
+          pipeline: [
+            {
+              $match: {
+                $expr: { $eq: ["$user_id", "$$userId"] },
+              },
+            },
+
+            {
+              $lookup: {
+                from: "classes",
+                let: { classId: "$class_id" },
+                pipeline: [
+                  {
+                    $match: {
+                      $expr: { $eq: ["$_id", "$$classId"] },
+                    },
+                  },
+
+                  {
+                    $lookup: {
+                      from: "departments",
+                      let: { deptId: "$department_id" },
+                      pipeline: [
+                        {
+                          $match: {
+                            $expr: { $eq: ["$_id", "$$deptId"] },
+                          },
+                        },
+                        {
+                          $project: {
+                            _id: 1,
+                            name: 1,
+                            code: 1,
+                          },
+                        },
+                      ],
+                      as: "department",
+                    },
+                  },
+
+                  {
+                    $project: {
+                      _id: 1,
+                      year: 1,
+                      semester: 1,
+                      department: { $arrayElemAt: ["$department", 0] },
+                    },
+                  },
+                ],
+                as: "classData",
+              },
+            },
+
+            {
+              $project: {
+                _id: 0,
+                guardian: 1,
+                rollNo: 1,
+                classData: { $arrayElemAt: ["$classData", 0] },
+              },
+            },
+          ],
+          as: "studentData",
+        },
+      },
+
+      // ================= FINAL PROJECT =================
+      {
+        $project: {
+          _id: 1,
+          name: 1,
+          email: 1,
+          phone: 1,
+          photo: 1,
+          username: 1,
+          account_status: 1,
+          role: 1,
+          created_at: 1,
+          email_verified: 1,
+
+          // Faculty/Admin subjects
+          subjects: {
+            $cond: {
+              if: {
+                $or: [
+                  { $eq: ["$role", "faculty"] },
+                  { $eq: ["$role", "admin"] },
+                ],
+              },
+              then: {
+                $ifNull: [
+                  { $arrayElemAt: ["$facultyData.subjects", 0] },
+                  [],
+                ],
+              },
+              else: [],
+            },
+          },
+
+          // Guardian (faculty or student)
+          guardian: {
+            $cond: {
+              if: { $eq: ["$role", "faculty"] },
+              then: { $arrayElemAt: ["$facultyData.guardian", 0] },
+              else: {
+                $cond: {
+                  if: { $eq: ["$role", "student"] },
+                  then: { $arrayElemAt: ["$studentData.guardian", 0] },
+                  else: null,
                 },
               },
             },
+          },
 
-            classData: {
-              $cond: {
-                if: { $eq: ["$role", "student"] },
-                then: { $arrayElemAt: ["$studentData.classData", 0] },
-                else: null,
-              },
+          // Student class data
+          classData: {
+            $cond: {
+              if: { $eq: ["$role", "student"] },
+              then: { $arrayElemAt: ["$studentData.classData", 0] },
+              else: null,
             },
+          },
 
-            // ✅ Add rollNo to final projection for students
-            rollNo: {
-              $cond: {
-                if: { $eq: ["$role", "student"] },
-                then: { $arrayElemAt: ["$studentData.rollNo", 0] },
-                else: null,
-              },
+          // Student roll number
+          rollNo: {
+            $cond: {
+              if: { $eq: ["$role", "student"] },
+              then: { $arrayElemAt: ["$studentData.rollNo", 0] },
+              else: null,
             },
           },
         },
-      ];
+      },
+    ];
 
-      const result = await User.aggregate(pipeline);
+    const result = await User.aggregate(pipeline);
 
-      if (!result.length) throw new Error("User not found");
+    if (!result.length) throw new Error("User not found");
 
-      return res.json({
-        success: true,
-        data: result[0],
-      });
-    } catch (error) {
-      next(error);
-    }
+    return res.json({
+      success: true,
+      data: result[0],
+    });
+  } catch (error) {
+    next(error);
   }
-
+} 
   static async viewProfile(req, res, next) {
     try {
       const user_id = req.query.user_id || req.params.user_id;
@@ -565,7 +598,7 @@ export class UserController {
       // Filter handling
       const filter = req.query.filter || "";
       const isCard = req.query.isCard;
-      let query: any = {};
+      let query: Record<string, unknown> = {};
       if (filter) {
         const regex = new RegExp(filter, "i");
         query = {

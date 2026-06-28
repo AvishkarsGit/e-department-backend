@@ -46,7 +46,7 @@ export class AttendanceController {
 
       // Find subject to get class_id
       const subject = await Subject.findOne({ _id: subject_id }).select(
-        "class_id"
+        "class_id",
       );
       if (!subject) throw new Error("subject not found");
 
@@ -106,9 +106,6 @@ export class AttendanceController {
   }
 
   static async saveAttendance(req, res, next) {
-    const session = await mongoose.startSession();
-    session.startTransaction();
-
     try {
       const { subject_id, faculty_id, period_id, date, attendance } = req.body;
 
@@ -124,17 +121,23 @@ export class AttendanceController {
       const attendanceDate = new Date(date);
       attendanceDate.setHours(0, 0, 0, 0);
 
-      // ✅ Get class from subject
+      // Get class from subject
       const subject = await Subject.findById(subject_id).select("class_id");
-      if (!subject) throw new Error("Subject not found");
+      if (!subject) {
+        return res.status(404).json({
+          success: false,
+          message: "Subject not found",
+        });
+      }
+
       const class_id = subject.class_id;
 
-      // ✅ Prevent duplicate attendance for period/class/date
+      // Prevent duplicate attendance
       const existingSession = await ClassSession.findOne({
         class_id,
         period: period_id,
         date: attendanceDate,
-      }).session(session);
+      });
 
       if (existingSession) {
         return res.status(400).json({
@@ -143,23 +146,18 @@ export class AttendanceController {
         });
       }
 
-      // ✅ Create new session
-      const [newSession] = await ClassSession.create(
-        [
-          {
-            class_id,
-            subject_id,
-            faculty_id,
-            period: period_id,
-            date: attendanceDate,
-          },
-        ],
-        { session }
-      );
+      // Create session
+      const newSession = await ClassSession.create({
+        class_id,
+        subject_id,
+        faculty_id,
+        period: period_id,
+        date: attendanceDate,
+      });
 
       const sessionId = newSession._id;
 
-      // ✅ Insert attendance documents
+      // Insert attendance records
       const attendanceDocs = attendanceArray.map((att) => ({
         session_id: sessionId,
         student_id: att.student_id,
@@ -169,65 +167,65 @@ export class AttendanceController {
         status: att.status,
       }));
 
-      await Attendance.insertMany(attendanceDocs, { session });
+      await Attendance.insertMany(attendanceDocs);
 
-      // ✅ Update summaries with $inc and calculate percentage separately
+      // Update summaries
       const bulkOps = attendanceArray.map((att) => ({
         updateOne: {
-          filter: { student_id: att.student_id, subject_id, class_id },
+          filter: {
+            student_id: att.student_id,
+            subject_id,
+            class_id,
+          },
           update: {
             $inc: {
               total_classes: 1,
               attended_classes: att.status === "present" ? 1 : 0,
             },
-            $set: { last_updated: new Date() },
+            $set: {
+              last_updated: new Date(),
+            },
           },
           upsert: true,
         },
       }));
 
       if (bulkOps.length > 0) {
-        await AttendanceSummary.bulkWrite(bulkOps, { session });
+        await AttendanceSummary.bulkWrite(bulkOps);
       }
 
-      // ✅ Recalculate percentages after increments
-      await AttendanceSummary.updateMany(
-        { class_id, subject_id },
-        [
-          {
-            $set: {
-              attendance_percentage: {
-                $cond: [
-                  { $eq: ["$total_classes", 0] },
-                  0,
-                  {
-                    $multiply: [
-                      { $divide: ["$attended_classes", "$total_classes"] },
-                      100,
-                    ],
-                  },
-                ],
-              },
+      // Recalculate attendance percentage
+      await AttendanceSummary.updateMany({ class_id, subject_id }, [
+        {
+          $set: {
+            attendance_percentage: {
+              $cond: [
+                { $eq: ["$total_classes", 0] },
+                0,
+                {
+                  $multiply: [
+                    {
+                      $divide: ["$attended_classes", "$total_classes"],
+                    },
+                    100,
+                  ],
+                },
+              ],
             },
           },
-        ],
-        { session }
-      );
+        },
+      ]);
 
-      await session.commitTransaction();
-      session.endSession();
-
-      res.status(200).json({
+      return res.status(200).json({
         success: true,
-        data: { message: "Attendance saved successfully." },
+        data: {
+          message: "Attendance saved successfully.",
+        },
       });
     } catch (error) {
-      await session.abortTransaction();
-      session.endSession();
       next(error);
     }
   }
-
   static async fetchSubjectsByClass(req, res, next) {
     try {
       const class_id = req.params.class_id || req.query.class_id;
@@ -266,43 +264,44 @@ export class AttendanceController {
 
       const isAllSubjects =
         subject_id?.toString().toLowerCase() === "all" || !subject_id;
-      const classObjectId = new mongoose.Types.ObjectId(class_id as string);
-      const limitInt = parseInt(limit as string, 10);
-      const skipInt = (parseInt(page as string, 10) - 1) * limitInt;
+      const classObjectId = new mongoose.Types.ObjectId(String(class_id));
+      const limitInt = parseInt(String(limit), 10);
+      const skipInt = (parseInt(String(page), 10) - 1) * limitInt;
 
       // 1. Initial Match Filter for Class and Date Range
-      const matchFilter: any = {
+      const matchFilter: mongoose.FilterQuery<typeof Attendance> = {
         class_id: classObjectId,
       };
 
       // Filter by subject if a specific subject is selected
       if (!isAllSubjects) {
         matchFilter.subject_id = new mongoose.Types.ObjectId(
-          subject_id as string
+          String(subject_id),
         );
       }
 
       // Date Range Filter (Ensuring correct Date object creation)
       if (from_date || to_date) {
-        matchFilter.date = {};
+        const dateFilter: Record<string, Date> = {};
 
         if (from_date) {
           // Set to beginning of the day (00:00:00.000) for inclusive start
-          const startDateObj = new Date(from_date as string);
+          const startDateObj = new Date(String(from_date));
           startDateObj.setHours(0, 0, 0, 0);
-          matchFilter.date.$gte = startDateObj;
+          dateFilter.$gte = startDateObj;
         }
 
         if (to_date) {
           // Set to end of the day (23:59:59.999) for inclusive end
-          const endDateObj = new Date(to_date as string);
+          const endDateObj = new Date(String(to_date));
           endDateObj.setHours(23, 59, 59, 999);
-          matchFilter.date.$lte = endDateObj;
+          dateFilter.$lte = endDateObj;
         }
+        matchFilter.date = dateFilter;
       }
 
       // 2. Get Total Count for Pagination (Count unique students)
-      const countPipeline: any[] = [
+      const countPipeline: mongoose.PipelineStage[] = [
         { $match: matchFilter },
         { $group: { _id: "$student_id" } }, // Group by student_id to count unique students
         { $count: "totalDocuments" },
@@ -485,7 +484,7 @@ export class AttendanceController {
       return res.json({
         success: true,
         pagination: {
-          page: parseInt(page as string, 10),
+          page: parseInt(String(page), 10),
           limit: limitInt,
           totalPages: totalPages,
           totalResults: totalDocuments,
@@ -756,8 +755,8 @@ export class AttendanceController {
         return res.json({
           success: true,
           pagination: {
-            page: parseInt(page as string, 10),
-            limit: parseInt(limit as string, 10),
+            page: parseInt(String(page), 10),
+            limit: parseInt(String(limit), 10),
             totalPages: 0,
             totalResults: 0,
           },
@@ -771,12 +770,12 @@ export class AttendanceController {
       }
 
       // --- Pagination setup ---
-      const limitInt = Math.max(parseInt(limit as string, 10) || 10, 1);
-      const pageInt = Math.max(parseInt(page as string, 10) || 1, 1);
+      const limitInt = Math.max(parseInt(String(limit), 10) || 10, 1);
+      const pageInt = Math.max(parseInt(String(page), 10) || 1, 1);
       const skipInt = (pageInt - 1) * limitInt;
 
       const studentObjectId = new mongoose.Types.ObjectId(student_id);
-      const classObjectId = new mongoose.Types.ObjectId(class_id as string);
+      const classObjectId = new mongoose.Types.ObjectId(String(class_id));
       const subjectObjectId = new mongoose.Types.ObjectId(subject);
 
       // --- Build filter ---
@@ -789,12 +788,12 @@ export class AttendanceController {
       if (from_date || to_date) {
         matchFilter.date = {};
         if (from_date) {
-          const startDateObj = new Date(from_date as string);
+          const startDateObj = new Date(String(from_date));
           startDateObj.setHours(0, 0, 0, 0);
           matchFilter.date.$gte = startDateObj;
         }
         if (to_date) {
-          const endDateObj = new Date(to_date as string);
+          const endDateObj = new Date(String(to_date));
           endDateObj.setHours(23, 59, 59, 999);
           matchFilter.date.$lte = endDateObj;
         }
@@ -940,7 +939,7 @@ export class AttendanceController {
       const total_classes = summary.length;
       const total_classes_attended = summary.reduce(
         (acc, curr) => acc + curr.attended_classes,
-        0
+        0,
       );
 
       const attendance_percentage =

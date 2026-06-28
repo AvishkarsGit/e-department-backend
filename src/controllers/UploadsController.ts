@@ -14,10 +14,8 @@ export class UploadsController {
       let secure_url, public_id;
 
       if (req.file) {
-        const result = await AWS.uploadToS3(req.file.path, "material");
-
-        secure_url = result?.secure_url;
-        public_id = result?.public_id;
+        secure_url = req.file.path;
+        public_id = req.file.filename;
       }
 
       //find class id
@@ -163,16 +161,14 @@ export class UploadsController {
 
       if (req.file) {
         console.log("file", req.file);
-        //delete previous file from db
-        const isDeleted = await AWS.deleteFromS3(public_id);
-        if (!isDeleted) throw new Error("failed to delete previous file");
+        //delete previous file locally
+        if (secure_url && fs.existsSync(secure_url)) {
+          fs.unlinkSync(secure_url);
+        }
 
-        //upload new file
-        const result = await AWS.uploadToS3(req.file.path, "material");
-
-        //get url and public id
-        secure_url = result?.secure_url;
-        public_id = result?.public_id;
+        //use new file details
+        secure_url = req.file.path;
+        public_id = req.file.filename;
 
         console.log("new url:", secure_url);
         console.log("new public id:", public_id);
@@ -215,9 +211,10 @@ export class UploadsController {
       const material = await Uploads.findOne({ _id: id });
       if (!material) throw new Error("material not found");
 
-      const public_id = material.cloud_public_id;
-      const isDeleted = await AWS.deleteFromS3(public_id);
-      if (!isDeleted) throw new Error("failed to delete data");
+      // Delete file locally
+      if (material.uploaded_url && fs.existsSync(material.uploaded_url)) {
+        fs.unlinkSync(material.uploaded_url);
+      }
 
       const deleted = await Uploads.findOneAndDelete({ _id: material._id });
       if (!deleted) throw new Error("failed to delete data");
@@ -237,8 +234,10 @@ export class UploadsController {
       const material = await Uploads.findOne({ _id: id });
       if (!material) throw new Error("material not found");
 
-      const downloadUrl = await AWS.getDownloadUrl(material?.cloud_public_id);
-      if (!downloadUrl) throw new Error("failed to get download url");
+      const baseUrl = process.env.API_URL || "http://localhost:4000";
+      const relativePath = material.uploaded_url.replace(/\\/g, "/");
+      const downloadUrl = `${baseUrl}/${relativePath}`;
+
       return res.json({
         success: true,
         data: downloadUrl,
