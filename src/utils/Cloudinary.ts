@@ -14,6 +14,7 @@ export class Cloudinary {
         type: "authenticated", // very important
         access_mode: "authenticated",
       });
+      console.log(`upload`,uploadResult);
       if (uploadResult) {
         //successfully upload file to cloudinary, unlink/delete the local files
         fs.unlinkSync(filePath);
